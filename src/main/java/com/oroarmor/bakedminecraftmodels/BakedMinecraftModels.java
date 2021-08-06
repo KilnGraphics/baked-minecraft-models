@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 OroArmor (Eli Orona)
+ * Copyright (c) 2021 OroArmor (Eli Orona), Blaze4D
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,12 +22,20 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.oro_mod_template;
+package com.oroarmor.bakedminecraftmodels;
 
-import net.fabricmc.api.ModInitializer;
+import net.minecraft.util.Identifier;
 
-public class Mod implements ModInitializer {
+import net.fabricmc.api.ClientModInitializer;
+
+public class BakedMinecraftModels implements ClientModInitializer {
+	public static final String MOD_ID = "baked_minecraft_models";
+
 	@Override
-	public void onInitialize() {
+	public void onInitializeClient() {
+	}
+
+	public static Identifier id(String path) {
+		return new Identifier(MOD_ID, path);
 	}
 }

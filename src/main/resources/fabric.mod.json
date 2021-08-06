@@ -1,34 +1,33 @@
 {
   "schemaVersion": 1,
-  "id": "oro_mod_template",
+  "id": "baked_minecraft_models",
   "version": "${version}",
 
-  "name": "OroArmor's Mod Template",
-  "description": "This is a template mod for OroArmor.",
+  "name": "Baked Minecraft Models",
+  "description": "Bakes minecraft models into vertex buffers and uses an animation system to reduce data uploading.",
   "authors": [
-    "OroArmor"
+    "OroArmor",
+    "Blaze4D-MC"
   ],
   "contact": {
-    "homepage": "https://oroarmor.com/",
-    "sources": "https://github.com/OroArmor/oro-mod-template"
+    "sources": "https://github.com/Blaze4D-MC/baked-minecraft-models"
   },
 
   "license": "MIT",
-  "icon": "assets/oro_mod_template/icon.png",
+  "icon": "assets/baked_minecraft_models/icon.png",
 
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
-    "main": [
-      "com.oroarmor.oro_mod_template.Mod"
+    "client": [
+      "com.oroarmor.bakedminecraftmodels.BakedMinecraftModels"
     ]
   },
   "mixins": [
-    "oro_mod_template.mixins.json"
+    "baked_minecraft_models.mixins.json"
   ],
 
   "depends": {
     "fabricloader": ">=0.11.3",
-    "fabric": "*",
-    "minecraft": "1.16.x"
+    "minecraft": ">=1.17.x"
   }
 }

@@ -3,26 +3,28 @@ buildscript {
         maven {
             url "https://plugins.gradle.org/m2/"
         }
+
     }
     dependencies {
-        classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.0"
         classpath "org.kohsuke:github-api:1.114"
+        classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
         classpath "gradle.plugin.com.modrinth.minotaur:Minotaur:1.1.0"
     }
 }
 
 plugins {
-    id 'fabric-loom' version '0.6-SNAPSHOT'
+    id 'fabric-loom' version '0.8-SNAPSHOT'
     id 'maven-publish'
-    id 'org.cadixdev.licenser' version '0.5.0'
+    id 'org.cadixdev.licenser' version '0.6.1'
     id "signing"
-    id "maven"
     id "com.modrinth.minotaur" version "1.1.0"
     id "com.matthewprenger.cursegradle" version "1.4.0"
 }
+apply plugin: 'io.codearte.nexus-staging'
 
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
+
+sourceCompatibility = JavaVersion.VERSION_16
+targetCompatibility = JavaVersion.VERSION_16
 
 archivesBaseName = project.archives_base_name
 version = project.mod_version
@@ -44,7 +46,9 @@ tasks.withType(Sign) {
 if (project.hasProperty("sign")) {
     signing {
         useGpgCmd()
-        sign configurations.archives
+        publishing.publications.all { Publication pub ->
+            sign pub
+        }
     }
 }
 
@@ -53,15 +57,9 @@ license {
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-    modImplementation(include("com.oroarmor:oro-config-fabric:3.1.0"))
 }
 
 processResources {
@@ -82,7 +80,7 @@ tasks.withType(JavaCompile).configureEach {
     // The Minecraft launcher currently installs Java 8 for users, so your mod probably wants to target Java 8 too
     // JDK 9 introduced a new way of specifying this that will make sure no newer classes or methods are used.
     // We'll use that if it's available, but otherwise we'll use the older option.
-    def targetVersion = 8
+    def targetVersion = 16
     if (JavaVersion.current().isJava9Compatible()) {
         it.options.release = targetVersion
     }
@@ -110,54 +108,100 @@ artifacts {
     archives jar, sourcesJar, javadocJar
 }
 
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            def ossrhUsername = "OroArmor"
-            def ossrhPassword = project.hasProperty("ossrhPassword") ? project.property("ossrhPassword") : System.getenv("OSSRH_PASSWORD")
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact rootProject.file("build/libs/${project.archives_base_name}-${project.version}.jar")
+            artifact sourcesJar
+            artifact javadocJar
 
-            beforeDeployment {
-                MavenDeployment deployment -> signing.signPom(deployment)
-            }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: ossrhUsername, password: ossrhPassword)
-            }
-            pom.project {
-                name 'Oro Mod Template'
-                packaging 'jar'
+            pom {
+                name = 'Baked Minecraft Models'
+                packaging = 'jar'
                 // optionally artifactId can be defined here
-                description 'This is a template mod for OroArmor.'
-                url 'http://github.com/OroArmor/oro-mod-template'
+                description = 'Bakes minecraft models into vertex buffers and uses an animation system to reduce data uploading.'
+                url = 'http://github.com/Blaze4d-MC/baked-minecraft-models'
 
                 scm {
-                    connection 'scm:git:git://github.com/OroArmor/oro-mod-template.git'
-                    developerConnection 'scm:git:ssh://github.com:OroArmor/oro-mod-template.git'
-                    url 'http://github.com/OroArmor/oro-mod-template'
+                    connection = 'scm:git:git://github.com/Blaze4d-MC/baked-minecraft-models.git'
+                    developerConnection = 'scm:git:ssh://github.com:Blaze4d-MC/baked-minecraft-models.git'
+                    url = 'http://github.com/Blaze4d-MC/baked-minecraft-models'
                 }
 
                 licenses {
                     license {
-                        name 'MIT'
-                        url 'https://mit-license.org/'
+                        name = 'MIT'
+                        url = 'https://mit-license.org/'
                     }
                 }
 
                 developers {
                     developer {
-                        id 'OroArmor'
-                        name 'Eli Orona'
-                        email 'eliorona@live.com'
-                        url "oroarmor.com"
+                        id = 'OroArmor'
+                        name = 'Eli Orona'
+                        email = 'eliorona@live.com'
+                        url = "oroarmor.com"
                     }
                 }
             }
         }
     }
+
+    repositories {
+        def ossrhUsername = "OroArmor"
+        def ossrhPassword = (project.hasProperty("ossrhPassword") ? project.property("ossrhPassword") : System.getenv("OSSRH_PASSWORD")) as String
+        mavenLocal()
+        maven {
+            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials(PasswordCredentials) {
+                username = ossrhUsername
+                password = ossrhPassword
+            }
+            name = "mavenCentral"
+        }
+    }
+}
+
+
+nexusStaging {
+//	serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    username = "OroArmor"
+    password = project.hasProperty("ossrhPassword") ? project.property("ossrhPassword") : System.getenv("OSSRH_PASSWORD")
+}
+
+task github {
+    onlyIf {
+        System.getenv().GITHUB_TOKEN
+    }
+
+    doLast {
+        def github = org.kohsuke.github.GitHub.connectUsingOAuth(System.getenv().GITHUB_TOKEN as String)
+        def repository = github.getRepository("Blaze4d-MC/baked-minecraft-models")
+
+        def releaseBuilder = new org.kohsuke.github.GHReleaseBuilder(repository, project.mod_version)
+        releaseBuilder.name("$project.project_name $project.mod_version for $project.minecraft_version")
+        releaseBuilder.body(project.ext.changelog)
+        releaseBuilder.commitish("master")
+
+        def ghRelease = releaseBuilder.create()
+        ghRelease.uploadAsset(file("${project.rootDir}/build/libs/${archivesBaseName}-${version}.jar"), "application/java-archive")
+    }
+}
+
+task generateChangelog {
+    def changelogFile = file("CHANGELOG.md")
+    def contents = ""
+    changelogFile.withReader { reader ->
+        def line
+        while ((line = reader.readLine()) != null)
+            contents += line + "\n"
+    }
+
+    def changelogs = contents.split("----")
+    project.ext.changelog = changelogs.find { log -> log.contains(project.version) }
+    println project.ext.changelog
 }
 
 curseforge {
@@ -171,11 +215,8 @@ curseforge {
 
             changelogType = "html"
             changelog = project.ext.changelog
-//			relations {
-//				requiredDependency "fabric-api"
-//			}
             mainArtifact(remapJar.archivePath) {
-                displayName = "Oro Mod Template - $rootProject.mod_version"
+                displayName = "Baked Minecraft Models - $rootProject.mod_version"
             }
             afterEvaluate {
                 uploadTask.dependsOn("build")
@@ -198,37 +239,4 @@ task publishToModrinth(type: TaskModrinthUpload) {
     changelog = project.ext.changelog
     project.game_versions.split(",").each { String game_version -> addGameVersion(game_version) }
     addLoader('fabric')
-}
-
-task github {
-    onlyIf {
-        System.getenv().GITHUB_TOKEN
-    }
-
-    doLast {
-        def github = org.kohsuke.github.GitHub.connectUsingOAuth(System.getenv().GITHUB_TOKEN as String)
-        def repository = github.getRepository("OroArmor/oro-mod-template")
-
-        def releaseBuilder = new org.kohsuke.github.GHReleaseBuilder(repository, project.mod_version)
-        releaseBuilder.name("$project.project_name $project.mod_version for $project.minecraft_version")
-        releaseBuilder.body(project.ext.changelog)
-        releaseBuilder.commitish("master")
-
-        def ghRelease = releaseBuilder.create()
-        ghRelease.uploadAsset(file("${project.rootDir}/build/libs/${archivesBaseName}-${version}.jar"), "application/java-archive");
-    }
-}
-
-task generateChangelog {
-    def changelogFile = file("CHANGELOG.md")
-    def contents = ""
-    changelogFile.withReader { reader ->
-        def line
-        while ((line = reader.readLine()) != null)
-            contents += line + "\n"
-    }
-
-    def changelogs = contents.split("----")
-    project.ext.changelog = changelogs.find { log -> log.contains(project.version) }
-    println project.ext.changelog
 }
