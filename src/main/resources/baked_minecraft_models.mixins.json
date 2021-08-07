@@ -2,10 +2,15 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.oroarmor.bakedminecraftmodels.mixin",
-  "compatibilityLevel": "JAVA_8",
+  "compatibilityLevel": "JAVA_16",
   "mixins": [
   ],
   "client": [
+    "ModelPartDataMixin",
+    "ModelPartMixin",
+    "CuboidMixin",
+    "SpriteTexturedVertexConsumerAccessor",
+    "BufferBuilderAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
