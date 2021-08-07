@@ -10,7 +10,9 @@
     "ModelPartMixin",
     "CuboidMixin",
     "SpriteTexturedVertexConsumerAccessor",
-    "BufferBuilderAccessor"
+    "BufferBuilderAccessor",
+    "RenderLayerMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -51,7 +51,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = true;
+    private static final boolean EXPORT_MODELS_TO_OBJ = false;
 
     public static final VertexFormat SMART_ENTITY_FORMAT = new VertexFormat(
             ImmutableMap.<String, VertexFormatElement>builder()
@@ -59,6 +59,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
                     .put("Color", VertexFormats.COLOR_ELEMENT)
                     .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
                     .put("Normal", VertexFormats.NORMAL_ELEMENT)
+                    .put("Padding", VertexFormats.PADDING_ELEMENT)
                     .put("Id", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
                     .build());
 
@@ -84,14 +85,14 @@ public class BakedMinecraftModels implements ClientModInitializer {
                 ModelPart model = modelData.createModel();
                 MatrixStack stack = new MatrixStack();
                 BufferBuilder consumer = new BufferBuilder(2097152);
-                consumer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                consumer.begin(VertexFormat.DrawMode.QUADS, SMART_ENTITY_FORMAT);
                 model.render(stack, consumer, 0, 0);
                 consumer.end();
                 Pair<BufferBuilder.DrawArrayParameters, ByteBuffer> data = consumer.popData();
                 List<String> vertices = new ArrayList<>(), normals = new ArrayList<>(), uvs = new ArrayList<>();
                 ByteBuffer vertexData = data.getSecond();
                 vertexData.order(ByteOrder.LITTLE_ENDIAN);
-                for (int i = 0; i < vertexData.limit(); i += 36) {
+                for (int i = 0; i < vertexData.limit(); i += SMART_ENTITY_FORMAT.getVertexSize()) {
                     vertices.add(String.format("v %f %f %f",
                             vertexData.getFloat(i),
                             vertexData.getFloat(i + 4),
@@ -102,9 +103,9 @@ public class BakedMinecraftModels implements ClientModInitializer {
                             vertexData.getFloat(i + 20)));
 
                     normals.add(String.format("vn %f %f %f",
-                            vertexData.get(i + 32) / 127.0f,
-                            vertexData.get(i + 33) / 127.0f,
-                            vertexData.get(i + 34) / 127.0f));
+                            vertexData.get(i + 24) / 127.0f,
+                            vertexData.get(i + 25) / 127.0f,
+                            vertexData.get(i + 26) / 127.0f));
                 }
 
                 List<String> faces = new ArrayList<>();
