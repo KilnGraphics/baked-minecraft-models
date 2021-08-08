@@ -24,6 +24,10 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.ModelIDBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +36,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.model.ModelPartBuilder;
@@ -45,6 +50,9 @@ public class ModelPartDataMixin implements ModelIDBuilder {
 
     @Unique
     private int bmm$nextId = 1;
+
+    @Unique
+    private final Set<Integer> bmm$reusableIds = new HashSet<>();
 
     @Unique
     @Nullable
@@ -73,7 +81,17 @@ public class ModelPartDataMixin implements ModelIDBuilder {
 
     @Override
     public int getNextAvailableModelId() {
-        return getParent() == null ? bmm$nextId++ : getParent().getNextAvailableModelId();
+        if (getParent() == null) {
+            if (bmm$reusableIds.isEmpty()) {
+                return bmm$nextId++;
+            }
+            int id = bmm$reusableIds.stream().sorted().findFirst().orElse(-1);
+            if (!bmm$reusableIds.remove(id)){
+                throw new RuntimeException("That's a real issue");
+            }
+            return id;
+        }
+        return getParent().getNextAvailableModelId();
     }
 
     @Inject(method = "addChild", at = @At("RETURN"))
@@ -81,6 +99,23 @@ public class ModelPartDataMixin implements ModelIDBuilder {
         ModelIDBuilder child = (ModelIDBuilder) cir.getReturnValue();
         child.setParent(this);
         child.setId(this.getNextAvailableModelId());
+    }
+
+    @Inject(method = "addChild", at = @At(value = "INVOKE", target = "Ljava/util/Map;putAll(Ljava/util/Map;)V"), locals = LocalCapture.CAPTURE_FAILSOFT)
+    public void removeOldId(String name, ModelPartBuilder builder, ModelTransform rotationData, CallbackInfoReturnable<ModelPartData> cir, ModelPartData modelPartData, ModelPartData modelPartData2){
+        if (modelPartData2 != null) {
+            bmm$makeIdReusable(((ModelID) modelPartData2).getId());
+        }
+    }
+
+    @Unique
+    private void bmm$makeIdReusable(int id) {
+        ModelIDBuilder parent = this;
+        while (parent != null && parent.getParent() != null) {
+            parent = parent.getParent();
+        }
+
+        ((ModelPartDataMixin) parent).bmm$reusableIds.add(id);
     }
 
     @Inject(method = "createPart", at = @At("RETURN"))

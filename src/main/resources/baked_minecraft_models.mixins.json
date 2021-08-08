@@ -6,13 +6,15 @@
   "mixins": [
   ],
   "client": [
+    "BufferBuilderAccessor",
+    "CuboidMixin",
+    "GameRendererMixin",
     "ModelPartDataMixin",
     "ModelPartMixin",
-    "CuboidMixin",
-    "SpriteTexturedVertexConsumerAccessor",
-    "BufferBuilderAccessor",
     "RenderLayerMixin",
-    "GameRendererMixin"
+    "SpriteTexturedVertexConsumerAccessor",
+    "MultiPhaseParametersAccessor",
+    "TextureRenderPhaseAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -24,6 +24,10 @@ plugins {
 
 apply plugin: 'io.codearte.nexus-staging'
 
+loom {
+    accessWidenerPath.set(file("src/main/resources/baked_minecraft_models.accesswidener"))
+}
+
 loomQuiltflower {
     quiltflowerVersion.set("1.5.0")
     preferences.inlineSimpleLambdas(0)
