@@ -39,6 +39,6 @@ import net.minecraft.entity.LivingEntity;
 public class LivingEntityRendererMixin<T extends LivingEntity, M extends EntityModel<T>> {
     @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
     public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
-        cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.turnIntoSmartRenderLayer(cir.getReturnValue()));
+        cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.deriveSmartRenderLayer(cir.getReturnValue()));
     }
 }

@@ -28,7 +28,7 @@ out vec2 texCoord0;
 out vec4 normal;
 
 void main() {
-    gl_Position = ProjMat * ModelViewMat * vec4(Position.x, Position.y, Position.z, 1.0);
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
     vertexDistance = length((ModelViewMat * vec4(Position, 1.0)).xyz);
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color);

@@ -34,16 +34,16 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.render.VertexFormat;
 
 public class BakedMinecraftModelsRenderLayerManager {
     private static final Map<RenderLayer, RenderLayer> dumbToSmart = new HashMap<>();
 
-    public static RenderLayer turnIntoSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
+    public static RenderLayer deriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
+        if (dumbRenderLayer == null) {
+            return null;
+        }
+
         return dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
-            if (_dumbRenderLayer == null) {
-                return null;
-            }
 
             RenderLayerAccessor dumbMultiPhaseRenderPass = ((RenderLayerAccessor) _dumbRenderLayer);
             MultiPhaseParametersAccessor dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) dumbMultiPhaseRenderPass).getPhases());
@@ -67,8 +67,8 @@ public class BakedMinecraftModelsRenderLayerManager {
             return new RenderLayer.MultiPhase(
                     dumbMultiPhaseRenderPass.getName(),
                     BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT,
-                    VertexFormat.DrawMode.QUADS,
-                    dumbMultiPhaseRenderPass.getExpectedBufferSize(),
+                    _dumbRenderLayer.getDrawMode(),
+                    _dumbRenderLayer.getExpectedBufferSize(),
                     dumbMultiPhaseRenderPass.getHasCrumbling(),
                     dumbMultiPhaseRenderPass.getTranslucent(),
                     phaseParameters

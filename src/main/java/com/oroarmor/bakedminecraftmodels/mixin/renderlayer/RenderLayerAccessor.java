@@ -31,12 +31,10 @@ import net.minecraft.client.render.RenderLayer;
 
 @Mixin(RenderLayer.class)
 public interface RenderLayerAccessor extends RenderPhaseAccessor{
-    @Accessor
-    int getExpectedBufferSize();
 
     @Accessor
     boolean getHasCrumbling();
 
     @Accessor
-    boolean getTranslucent();
+    boolean getTranslucent(); // This doesn't actually mean translucent, yarn just doesn't have a good name for this.
 }
