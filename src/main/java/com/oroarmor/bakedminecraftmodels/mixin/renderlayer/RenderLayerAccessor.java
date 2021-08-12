@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import net.minecraft.client.render.RenderLayer;
 
 @Mixin(RenderLayer.class)
-public interface RenderLayerAccessor {
+public interface RenderLayerAccessor extends RenderPhaseAccessor{
     @Accessor
     int getExpectedBufferSize();
 

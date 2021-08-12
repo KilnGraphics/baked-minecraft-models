@@ -22,15 +22,21 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
+import com.google.common.collect.ImmutableMap;
 
-import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormatElement;
+import net.minecraft.client.render.VertexFormats;
 
-@Mixin(RenderPhase.class)
-public interface RenderPhaseAccessor {
-    @Accessor
-    String getName();
+public class BakedMinecraftModelsVertexFormats {
+    public static final VertexFormat SMART_ENTITY_FORMAT = new VertexFormat(
+            ImmutableMap.<String, VertexFormatElement>builder()
+                    .put("Position", VertexFormats.POSITION_ELEMENT)
+                    .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
+                    .put("Normal", VertexFormats.NORMAL_ELEMENT)
+                    .put("Padding", VertexFormats.PADDING_ELEMENT)
+                    .put("Id", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
+                    .build());
 }

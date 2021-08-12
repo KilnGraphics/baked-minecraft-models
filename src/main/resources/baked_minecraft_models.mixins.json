@@ -6,16 +6,17 @@
   "mixins": [
   ],
   "client": [
-    "BufferBuilderAccessor",
-    "CuboidMixin",
-    "LivingEntityRendererMixin",
-    "ModelPartDataMixin",
-    "ModelPartMixin",
-    "MultiPhaseParametersAccessor",
-    "MultiPhaseRenderPassAccessor",
-    "RenderLayerAccessor",
-    "RenderPhaseAccessor",
-    "SpriteTexturedVertexConsumerAccessor"
+    "buffer.BufferBuilderAccessor",
+    "buffer.SpriteTexturedVertexConsumerAccessor",
+    "model.CuboidMixin",
+    "model.ModelPartDataMixin",
+    "model.ModelPartMixin",
+    "renderlayer.LivingEntityRendererMixin",
+    "renderlayer.MultiPhaseParametersAccessor",
+    "renderlayer.MultiPhaseRenderPassAccessor",
+    "renderlayer.RenderLayerAccessor",
+    "renderlayer.RenderPhaseAccessor",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

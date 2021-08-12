@@ -22,41 +22,52 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels;
+package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
-import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPhase;
 
-import net.fabricmc.api.ClientModInitializer;
+@Mixin(RenderLayer.MultiPhaseParameters.class)
+public interface MultiPhaseParametersAccessor {
+    @Accessor
+    RenderPhase.TextureBase getTexture();
 
-public class BakedMinecraftModels implements ClientModInitializer {
-    public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = false;
+    @Accessor
+    RenderPhase.Shader getShader();
 
-    // RenderDoc Vertex Format:
-    /*
-     vec3 pos
-     vec2 uv
-     byte3 normal
-     byte padding
-     int id
-    */
+    @Accessor
+    RenderPhase.Transparency getTransparency();
 
-    @Override
-    public void onInitializeClient() {
-        try {
-            System.loadLibrary("renderdoc");
-        } catch (Exception e) {
-            System.err.println("Unable to load renderdoc");
-        }
+    @Accessor
+    RenderPhase.DepthTest getDepthTest();
 
-        if (EXPORT_MODELS_TO_OBJ) {
-            ModelExporter.exportDefaultModelsToOBJ();
-        }
-    }
+    @Accessor
+    RenderPhase.Cull getCull();
 
-    public static Identifier id(String path) {
-        return new Identifier(MOD_ID, path);
-    }
+    @Accessor
+    RenderPhase.Lightmap getLightmap();
+
+    @Accessor
+    RenderPhase.Overlay getOverlay();
+
+    @Accessor
+    RenderPhase.Layering getLayering();
+
+    @Accessor
+    RenderPhase.Target getTarget();
+
+    @Accessor
+    RenderPhase.Texturing getTexturing();
+
+    @Accessor
+    RenderPhase.WriteMaskState getWriteMaskState();
+
+    @Accessor
+    RenderPhase.LineWidth getLineWidth();
+
+    @Accessor
+    RenderLayer.OutlineMode getOutlineMode();
 }

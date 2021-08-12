@@ -22,10 +22,12 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
+import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -57,17 +59,17 @@ public class CuboidMixin implements ModelID {
                 (BufferVertexConsumer) ((SpriteTexturedVertexConsumerAccessor) vertexConsumer).getParent() :
                 (BufferVertexConsumer) vertexConsumer;
 
-        if (((BufferBuilderAccessor) parent).getFormat() != BakedMinecraftModels.SMART_ENTITY_FORMAT) {
+        if (((BufferBuilderAccessor) parent).getFormat() != BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT) {
             parent.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         } else {
             parent.vertex(x, y, z);
-            parent.color(red, green, blue, alpha);
+//            parent.color(red, green, blue, alpha);
             parent.texture(u, v);
 //        vertexConsumer.overlay(overlay);
 //        vertexConsumer.light(light);
             parent.normal(normalX, normalY, normalZ);
             parent.putShort(0, (short) bmm$id);
-            parent.putShort(2, (short) (bmm$id >> 8));
+            parent.putShort(2, (short) (bmm$id >> 16));
             ((BufferVertexConsumer) vertexConsumer).nextElement();
 
             vertexConsumer.next();

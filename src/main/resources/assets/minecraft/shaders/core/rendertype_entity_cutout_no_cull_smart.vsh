@@ -3,7 +3,6 @@
 #moj_import <light.glsl>
 
 in vec3 Position;
-in vec4 Color;
 in vec2 UV0;
 in vec3 Normal;
 in int Id;
@@ -17,6 +16,10 @@ uniform mat4 ProjMat;
 uniform vec3 Light0_Direction;
 uniform vec3 Light1_Direction;
 
+uniform vec4 Color;
+uniform ivec2 UV1;
+uniform ivec2 UV2;
+
 out float vertexDistance;
 out vec4 vertexColor;
 out vec4 lightMapColor;
@@ -25,12 +28,12 @@ out vec2 texCoord0;
 out vec4 normal;
 
 void main() {
-    gl_Position = ProjMat * ModelViewMat * vec4(Position.x + Id, Position.y, Position.z, 1.0);
+    gl_Position = ProjMat * ModelViewMat * vec4(Position.x, Position.y, Position.z, 1.0);
 
     vertexDistance = length((ModelViewMat * vec4(Position, 1.0)).xyz);
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color);
-    lightMapColor = vec4(1,1,1,1); //texelFetch(Sampler2, UV2 / 16, 0);
-    overlayColor = vec4(1,1,1,1); //texelFetch(Sampler1, UV1, 0);
+    lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
+    overlayColor = texelFetch(Sampler1, UV1, 0);
     texCoord0 = UV0;
     normal = ProjMat * ModelViewMat * vec4(Normal, 0.0);
 }

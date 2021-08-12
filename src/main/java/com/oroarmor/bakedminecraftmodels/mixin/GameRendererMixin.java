@@ -24,13 +24,19 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin;
 
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.resource.ResourceManager;
 
-@Mixin(RenderLayer.MultiPhase.class)
-public interface MultiPhaseRenderPassAccessor {
-    @Accessor
-    RenderLayer.MultiPhaseParameters getPhases();
+@Mixin(GameRenderer.class)
+public class GameRendererMixin {
+    @Inject(method = "loadShaders", at = @At("RETURN"))
+    public void loadShaders(ResourceManager manager, CallbackInfo ci) {
+        BakedMinecraftModelsShaderManager.loadShaders(manager);
+    }
 }

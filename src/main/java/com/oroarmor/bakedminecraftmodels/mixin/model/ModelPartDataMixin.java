@@ -22,11 +22,10 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.ModelIDBuilder;

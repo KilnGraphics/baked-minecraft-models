@@ -4,11 +4,10 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "rendertype_entity_cutout_no_cull",
+    "vertex": "rendertype_entity_cutout_no_cull_smart",
     "fragment": "rendertype_entity_cutout_no_cull",
     "attributes": [
         "Position",
-        "Color",
         "UV0",
         "Normal",
         "Id"
@@ -26,6 +25,9 @@
         { "name": "Light1_Direction", "type": "float", "count": 3, "values": [0.0, 0.0, 0.0] },
         { "name": "FogStart", "type": "float", "count": 1, "values": [ 0.0 ] },
         { "name": "FogEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] }
+        { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
+        { "name": "Color", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0]},
+        { "name": "UV1", "type": "int", "count": 2, "values": [0, 0]},
+        { "name": "UV2", "type": "int", "count": 2, "values": [15, 15]}
     ]
 }

@@ -22,52 +22,23 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.model.EntityModel;
+import net.minecraft.entity.LivingEntity;
 
-@Mixin(RenderLayer.MultiPhaseParameters.class)
-public interface MultiPhaseParametersAccessor {
-    @Accessor
-    RenderPhase.TextureBase getTexture();
-
-    @Accessor
-    RenderPhase.Shader getShader();
-
-    @Accessor
-    RenderPhase.Transparency getTransparency();
-
-    @Accessor
-    RenderPhase.DepthTest getDepthTest();
-
-    @Accessor
-    RenderPhase.Cull getCull();
-
-    @Accessor
-    RenderPhase.Lightmap getLightmap();
-
-    @Accessor
-    RenderPhase.Overlay getOverlay();
-
-    @Accessor
-    RenderPhase.Layering getLayering();
-
-    @Accessor
-    RenderPhase.Target getTarget();
-
-    @Accessor
-    RenderPhase.Texturing getTexturing();
-
-    @Accessor
-    RenderPhase.WriteMaskState getWriteMaskState();
-
-    @Accessor
-    RenderPhase.LineWidth getLineWidth();
-
-    @Accessor
-    RenderLayer.OutlineMode getOutlineMode();
+@Mixin(LivingEntityRenderer.class)
+public class LivingEntityRendererMixin<T extends LivingEntity, M extends EntityModel<T>> {
+    @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
+    public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
+        cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.turnIntoSmartRenderLayer(cir.getReturnValue()));
+    }
 }

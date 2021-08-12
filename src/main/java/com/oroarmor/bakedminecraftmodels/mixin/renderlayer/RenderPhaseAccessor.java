@@ -22,26 +22,15 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
-
-import java.nio.ByteBuffer;
+package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.SpriteTexturedVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.RenderPhase;
 
-@Mixin(BufferBuilder.class)
-public interface BufferBuilderAccessor {
+@Mixin(RenderPhase.class)
+public interface RenderPhaseAccessor {
     @Accessor
-    VertexFormat getFormat();
-
-    @Accessor
-    ByteBuffer getBuffer();
-
-    @Accessor
-    void setBuffer(ByteBuffer buffer);
+    String getName();
 }

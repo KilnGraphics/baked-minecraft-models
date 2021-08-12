@@ -22,41 +22,15 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels;
+package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
-import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.client.render.RenderLayer;
 
-import net.fabricmc.api.ClientModInitializer;
-
-public class BakedMinecraftModels implements ClientModInitializer {
-    public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = false;
-
-    // RenderDoc Vertex Format:
-    /*
-     vec3 pos
-     vec2 uv
-     byte3 normal
-     byte padding
-     int id
-    */
-
-    @Override
-    public void onInitializeClient() {
-        try {
-            System.loadLibrary("renderdoc");
-        } catch (Exception e) {
-            System.err.println("Unable to load renderdoc");
-        }
-
-        if (EXPORT_MODELS_TO_OBJ) {
-            ModelExporter.exportDefaultModelsToOBJ();
-        }
-    }
-
-    public static Identifier id(String path) {
-        return new Identifier(MOD_ID, path);
-    }
+@Mixin(RenderLayer.MultiPhase.class)
+public interface MultiPhaseRenderPassAccessor {
+    @Accessor
+    RenderLayer.MultiPhaseParameters getPhases();
 }

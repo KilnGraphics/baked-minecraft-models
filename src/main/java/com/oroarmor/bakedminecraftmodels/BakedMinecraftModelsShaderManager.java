@@ -24,39 +24,21 @@
 
 package com.oroarmor.bakedminecraftmodels;
 
-import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
+import java.io.IOException;
 
-import net.minecraft.util.Identifier;
+import org.jetbrains.annotations.Nullable;
 
-import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.render.Shader;
+import net.minecraft.resource.ResourceManager;
 
-public class BakedMinecraftModels implements ClientModInitializer {
-    public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = false;
+public class BakedMinecraftModelsShaderManager {
+    public static @Nullable Shader SMART_ENTITY_CUTOUT_NO_CULL = null;
 
-    // RenderDoc Vertex Format:
-    /*
-     vec3 pos
-     vec2 uv
-     byte3 normal
-     byte padding
-     int id
-    */
-
-    @Override
-    public void onInitializeClient() {
+    public static void loadShaders(ResourceManager manager) {
         try {
-            System.loadLibrary("renderdoc");
-        } catch (Exception e) {
-            System.err.println("Unable to load renderdoc");
+            SMART_ENTITY_CUTOUT_NO_CULL = new Shader(manager, "rendertype_entity_cutout_no_cull_smart", BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        if (EXPORT_MODELS_TO_OBJ) {
-            ModelExporter.exportDefaultModelsToOBJ();
-        }
-    }
-
-    public static Identifier id(String path) {
-        return new Identifier(MOD_ID, path);
     }
 }

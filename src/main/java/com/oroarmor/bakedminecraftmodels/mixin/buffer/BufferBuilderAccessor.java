@@ -22,23 +22,26 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.mixin;
+package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
+import java.nio.ByteBuffer;
+
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.entity.LivingEntity;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.SpriteTexturedVertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
-@Mixin(LivingEntityRenderer.class)
-public class LivingEntityRendererMixin<T extends LivingEntity, M extends EntityModel<T>> {
-    @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
-    public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
-        cir.setReturnValue(BakedMinecraftModels.turnIntoSmartRenderLayer(cir.getReturnValue()));
-    }
+@Mixin(BufferBuilder.class)
+public interface BufferBuilderAccessor {
+    @Accessor
+    VertexFormat getFormat();
+
+    @Accessor
+    ByteBuffer getBuffer();
+
+    @Accessor
+    void setBuffer(ByteBuffer buffer);
 }
