@@ -33,11 +33,19 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.util.Pair;
+import com.oroarmor.bakedminecraftmodels.mixin.MultiPhaseParametersAccessor;
+import com.oroarmor.bakedminecraftmodels.mixin.MultiPhaseRenderPassAccessor;
+import com.oroarmor.bakedminecraftmodels.mixin.RenderLayerAccessor;
+import com.oroarmor.bakedminecraftmodels.mixin.RenderPhaseAccessor;
+import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormatElement;
 import net.minecraft.client.render.VertexFormats;
@@ -53,6 +61,14 @@ public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
 
+    // RenderDoc Vertex Format:
+    // vec3 pos
+    // rgb xbyte4 color
+    // vec2 uv
+    // byte3 normal
+    // byte padding
+    // int id
+
     public static final VertexFormat SMART_ENTITY_FORMAT = new VertexFormat(
             ImmutableMap.<String, VertexFormatElement>builder()
                     .put("Position", VertexFormats.POSITION_ELEMENT)
@@ -62,6 +78,40 @@ public class BakedMinecraftModels implements ClientModInitializer {
                     .put("Padding", VertexFormats.PADDING_ELEMENT)
                     .put("Id", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
                     .build());
+
+    public static RenderLayer turnIntoSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
+        if (dumbRenderLayer == null) {
+            return null;
+        }
+
+        RenderLayer.MultiPhase dumbMultiPhaseRenderPass = ((RenderLayer.MultiPhase) dumbRenderLayer);
+        MultiPhaseParametersAccessor dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) (Object) dumbMultiPhaseRenderPass).getPhases());
+
+        RenderLayer.MultiPhaseParameters phaseParameters = RenderLayer.MultiPhaseParameters.builder()
+                .cull(dumbMultiPhaseParameters.getCull())
+                .depthTest(dumbMultiPhaseParameters.getDepthTest())
+                .layering(dumbMultiPhaseParameters.getLayering())
+                .lightmap(dumbMultiPhaseParameters.getLightmap())
+                .lineWidth(dumbMultiPhaseParameters.getLineWidth())
+                .overlay(dumbMultiPhaseParameters.getOverlay())
+                .shader(new RenderPhase.Shader(RenderSystem::getShader))
+                .target(dumbMultiPhaseParameters.getTarget())
+                .texture(dumbMultiPhaseParameters.getTexture())
+                .texturing(dumbMultiPhaseParameters.getTexturing())
+                .transparency(dumbMultiPhaseParameters.getTransparency())
+                .writeMaskState(dumbMultiPhaseParameters.getWriteMaskState())
+                .build(dumbMultiPhaseParameters.getOutlineMode());
+
+        return new RenderLayer.MultiPhase(
+                ((RenderPhaseAccessor) (Object) dumbMultiPhaseRenderPass).getName(),
+                SMART_ENTITY_FORMAT,
+                VertexFormat.DrawMode.QUADS,
+                ((RenderLayerAccessor) (Object) dumbMultiPhaseRenderPass).getExpectedBufferSize(),
+                ((RenderLayerAccessor) (Object) dumbMultiPhaseRenderPass).getHasCrumbling(),
+                ((RenderLayerAccessor) (Object) dumbMultiPhaseRenderPass).getTranslucent(),
+                phaseParameters
+        );
+    }
 
     @Override
     public void onInitializeClient() {
@@ -73,7 +123,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
 
         if (EXPORT_MODELS_TO_OBJ) {
             try {
-                if(!Files.exists(FabricLoader.getInstance().getGameDir().resolve("models"))) {
+                if (!Files.exists(FabricLoader.getInstance().getGameDir().resolve("models"))) {
                     Files.createDirectory(FabricLoader.getInstance().getGameDir().resolve("models"));
                 }
             } catch (IOException e) {

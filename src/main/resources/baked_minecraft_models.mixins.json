@@ -8,13 +8,14 @@
   "client": [
     "BufferBuilderAccessor",
     "CuboidMixin",
-    "GameRendererMixin",
+    "LivingEntityRendererMixin",
     "ModelPartDataMixin",
     "ModelPartMixin",
-    "RenderLayerMixin",
-    "SpriteTexturedVertexConsumerAccessor",
     "MultiPhaseParametersAccessor",
-    "TextureRenderPhaseAccessor"
+    "MultiPhaseRenderPassAccessor",
+    "RenderLayerAccessor",
+    "RenderPhaseAccessor",
+    "SpriteTexturedVertexConsumerAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
