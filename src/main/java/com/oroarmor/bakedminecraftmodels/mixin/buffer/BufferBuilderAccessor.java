@@ -30,8 +30,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.SpriteTexturedVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
 @Mixin(BufferBuilder.class)

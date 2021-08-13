@@ -32,7 +32,7 @@ import net.fabricmc.api.ClientModInitializer;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = false;
+    private static final boolean EXPORT_MODELS_TO_OBJ = true;
 
     // RenderDoc Vertex Format:
     /*

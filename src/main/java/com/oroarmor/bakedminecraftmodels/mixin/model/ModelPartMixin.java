@@ -26,11 +26,7 @@ package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import java.util.List;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,12 +36,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.render.BufferVertexConsumer;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.SpriteTexturedVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vector4f;
 
 @Mixin(ModelPart.class)
 public class ModelPartMixin implements ModelID {

@@ -36,9 +36,6 @@ public interface MultiPhaseParametersAccessor {
     RenderPhase.TextureBase getTexture();
 
     @Accessor
-    RenderPhase.Shader getShader();
-
-    @Accessor
     RenderPhase.Transparency getTransparency();
 
     @Accessor
