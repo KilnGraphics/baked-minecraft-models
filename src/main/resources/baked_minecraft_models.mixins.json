@@ -6,6 +6,8 @@
   "mixins": [
   ],
   "client": [
+    "model.AnimalModelMixin",
+    "GameRendererMixin",
     "buffer.BufferBuilderAccessor",
     "buffer.SpriteTexturedVertexConsumerAccessor",
     "model.CuboidMixin",
@@ -15,8 +17,7 @@
     "renderlayer.MultiPhaseParametersAccessor",
     "renderlayer.MultiPhaseRenderPassAccessor",
     "renderlayer.RenderLayerAccessor",
-    "renderlayer.RenderPhaseAccessor",
-    "GameRendererMixin"
+    "renderlayer.RenderPhaseAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -67,15 +67,8 @@ public class ModelPartMixin implements ModelID {
         return bmm$id;
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    public void setShaderUniforms(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        BufferVertexConsumer parent = vertices instanceof SpriteTexturedVertexConsumer ?
-                (BufferVertexConsumer) ((SpriteTexturedVertexConsumerAccessor) vertices).getParent() :
-                (BufferVertexConsumer) vertices;
-        if (bmm$id == 0 && ((BufferBuilderAccessor) parent).getFormat() == BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT) {
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("Color").set(new Vector4f(red, green, blue, alpha));
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
-        }
+    @Inject(method = "rotate", at = @At("HEAD"), cancellable = true)
+    public void setSsboRotation(MatrixStack matrix, CallbackInfo ci) {
+        ci.cancel();
     }
 }
