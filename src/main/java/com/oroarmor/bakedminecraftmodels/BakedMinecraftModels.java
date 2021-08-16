@@ -64,7 +64,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
         return new Identifier(MOD_ID, path);
     }
 
-    public static BufferBuilder getBufferBuilder(VertexConsumer consumer) {
+    public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) {
         return consumer instanceof SpriteTexturedVertexConsumer ?
                 (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) consumer).getParent() :
                 (BufferBuilder) consumer;

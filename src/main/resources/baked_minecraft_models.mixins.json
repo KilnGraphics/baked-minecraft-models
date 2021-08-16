@@ -8,7 +8,10 @@
   "client": [
     "GameRendererMixin",
     "buffer.BufferBuilderAccessor",
+    "buffer.BufferBuilderMixin",
     "buffer.SpriteTexturedVertexConsumerAccessor",
+    "buffer.VertexConsumerProviderImmediateAccessor",
+    "buffer.VertexConsumerProviderImmediateMixin",
     "model.CuboidMixin",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",

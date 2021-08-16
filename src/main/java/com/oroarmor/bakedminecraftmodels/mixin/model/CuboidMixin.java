@@ -55,7 +55,7 @@ public class CuboidMixin implements ModelID {
 
     @Redirect(method = "renderCuboid", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/VertexConsumer;vertex(FFFFFFFFFIIFFF)V"))
     public void setVertexID(VertexConsumer vertexConsumer, float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
-        BufferBuilder parent = BakedMinecraftModels.getBufferBuilder(vertexConsumer);
+        BufferBuilder parent = BakedMinecraftModels.getNestedBufferBuilder(vertexConsumer);
 
         BufferBuilderAccessor parentAccessor = (BufferBuilderAccessor) parent;
 
