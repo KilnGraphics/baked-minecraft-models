@@ -42,7 +42,4 @@ public interface BufferBuilderAccessor {
 
     @Accessor
     int getElementOffset();
-
-    @Accessor
-    void setBuffer(ByteBuffer buffer);
 }

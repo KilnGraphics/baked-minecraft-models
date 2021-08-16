@@ -25,14 +25,18 @@
 package com.oroarmor.bakedminecraftmodels;
 
 import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
+import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.SpriteTexturedVertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.util.Identifier;
 
 import net.fabricmc.api.ClientModInitializer;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
-    private static final boolean EXPORT_MODELS_TO_OBJ = true;
+    private static final boolean EXPORT_MODELS_TO_OBJ = false;
 
     // RenderDoc Vertex Format:
     /*
@@ -58,5 +62,11 @@ public class BakedMinecraftModels implements ClientModInitializer {
 
     public static Identifier id(String path) {
         return new Identifier(MOD_ID, path);
+    }
+
+    public static BufferBuilder getBufferBuilder(VertexConsumer consumer) {
+        return consumer instanceof SpriteTexturedVertexConsumer ?
+                (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) consumer).getParent() :
+                (BufferBuilder) consumer;
     }
 }

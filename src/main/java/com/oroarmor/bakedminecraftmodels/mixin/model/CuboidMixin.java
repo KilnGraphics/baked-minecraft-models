@@ -24,19 +24,18 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
-import net.minecraft.client.render.BufferBuilder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferVertexConsumer;
-import net.minecraft.client.render.SpriteTexturedVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
 
 @Mixin(ModelPart.Cuboid.class)
@@ -56,9 +55,7 @@ public class CuboidMixin implements ModelID {
 
     @Redirect(method = "renderCuboid", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/VertexConsumer;vertex(FFFFFFFFFIIFFF)V"))
     public void setVertexID(VertexConsumer vertexConsumer, float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
-        BufferBuilder parent = vertexConsumer instanceof SpriteTexturedVertexConsumer ?
-                (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) vertexConsumer).getParent() :
-                (BufferBuilder) vertexConsumer;
+        BufferBuilder parent = BakedMinecraftModels.getBufferBuilder(vertexConsumer);
 
         BufferBuilderAccessor parentAccessor = (BufferBuilderAccessor) parent;
 
@@ -66,15 +63,12 @@ public class CuboidMixin implements ModelID {
             parent.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         } else {
             parent.vertex(x, y, z);
-//            parent.color(red, green, blue, alpha);
             parent.texture(u, v);
-//        vertexConsumer.overlay(overlay);
-//        vertexConsumer.light(light);
             parent.normal(normalX, normalY, normalZ);
             parentAccessor.getBuffer().putInt(parentAccessor.getElementOffset(), bmm$id);
-            ((BufferVertexConsumer) vertexConsumer).nextElement();
+            ((BufferVertexConsumer) parent).nextElement();
 
-            vertexConsumer.next();
+            parent.next();
         }
     }
 }
