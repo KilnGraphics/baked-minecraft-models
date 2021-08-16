@@ -40,15 +40,18 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
 
 @Mixin(ModelPart.class)
@@ -60,7 +63,8 @@ public abstract class ModelPartMixin implements ModelID {
     @Final
     private List<ModelPart.Cuboid> cuboids;
 
-    @Shadow public abstract void render(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha);
+    @Shadow
+    public abstract void render(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha);
 
     @Override
     public void setId(int id) {
@@ -75,7 +79,7 @@ public abstract class ModelPartMixin implements ModelID {
 
     @Inject(method = "rotate", at = @At("HEAD"), cancellable = true)
     public void setSsboRotation(MatrixStack matrix, CallbackInfo ci) {
-        if (bmm$initialModelPartForBaking != this) {
+        if(bmm$usingSmartRenderer) {
             ci.cancel();
         }
     }
@@ -84,44 +88,67 @@ public abstract class ModelPartMixin implements ModelID {
     private static Object bmm$initialModelPartForBaking = null;
 
     @Unique
+    private static boolean bmm$usingSmartRenderer = false;
+
+    @Unique
     @Nullable
-    protected VertexBuffer bmm$BakedVertices;
+    protected VertexBuffer bmm$bakedVertices;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"), cancellable = true)
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (bmm$initialModelPartForBaking == null && bmm$BakedVertices == null) {
+        BufferBuilder nestedBufferBuilder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
+
+        bmm$usingSmartRenderer = ((BufferBuilderAccessor) nestedBufferBuilder).getFormat() == BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT;
+
+        if (bmm$initialModelPartForBaking == null && bmm$bakedVertices == null) {
             bmm$initialModelPartForBaking = this;
+            if (!nestedBufferBuilder.isBuilding() && bmm$usingSmartRenderer) {
+                nestedBufferBuilder.begin(VertexFormat.DrawMode.QUADS, BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
+            }
         }
 
-        if (bmm$BakedVertices != null && ((BufferBuilderAccessor) vertices).getFormat() == BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT) {
+        if (bmm$bakedVertices != null && bmm$usingSmartRenderer) {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("Color").set(red, green, blue, alpha);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
-            RenderLayer layer = ((RenderLayerCreatedBufferBuilder) BakedMinecraftModels.getNestedBufferBuilder(vertices)).getRenderLayer();
+
+            GlUniform normalMatUniform = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("NormalMat");
+            matrices.peek().getNormal().writeColumnMajor(normalMatUniform.getFloatData());
+
+            RenderLayer layer = ((RenderLayerCreatedBufferBuilder) nestedBufferBuilder).getRenderLayer();
             if (layer == null) {
                 throw new RuntimeException("This is bad");
             }
             layer.startDrawing();
-            bmm$BakedVertices.setShader(matrices.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
+            bmm$bakedVertices.setShader(matrices.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
             layer.endDrawing();
             ci.cancel();
         }
     }
 
+    @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
+    public MatrixStack changeMatrixStack(MatrixStack stack) {
+        if (bmm$initialModelPartForBaking == this && bmm$bakedVertices == null) {
+            return new MatrixStack();
+        }
+        return stack;
+    }
+
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     public void createVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        BufferBuilder builder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
-        if (bmm$BakedVertices == null && ((BufferBuilderAccessor) builder).getFormat() == BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT && bmm$initialModelPartForBaking == this) {
+        if (bmm$bakedVertices == null && bmm$usingSmartRenderer && bmm$initialModelPartForBaking == this) {
+            BufferBuilder builder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
             if (MinecraftClient.getInstance().getWindow() != null) {
                 builder.end();
-                bmm$BakedVertices = new VertexBuffer();
-                bmm$BakedVertices.upload(builder);
+                bmm$bakedVertices = new VertexBuffer();
+                bmm$bakedVertices.upload(builder);
                 this.render(matrices, vertices, light, overlay, red, green, blue, alpha);
             }
         }
 
         if (bmm$initialModelPartForBaking == this) {
             bmm$initialModelPartForBaking = null;
+            bmm$usingSmartRenderer = false;
         }
     }
 }
