@@ -60,15 +60,15 @@ public class CuboidMixin implements ModelID {
         BufferBuilderAccessor parentAccessor = (BufferBuilderAccessor) parent;
 
         if (parentAccessor.getFormat() != BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT) {
-            parent.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
+            vertexConsumer.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         } else {
-            parent.vertex(x, y, z);
-            parent.texture(u, v);
-            parent.normal(normalX, normalY, normalZ);
+            vertexConsumer.vertex(x, y, z);
+            vertexConsumer.texture(u, v);
+            vertexConsumer.normal(normalX, normalY, normalZ);
             parentAccessor.getBuffer().putInt(parentAccessor.getElementOffset(), bmm$id);
             ((BufferVertexConsumer) parent).nextElement();
 
-            parent.next();
+            vertexConsumer.next();
         }
     }
 }

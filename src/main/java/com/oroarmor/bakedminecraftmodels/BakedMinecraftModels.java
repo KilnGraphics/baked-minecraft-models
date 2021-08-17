@@ -24,6 +24,8 @@
 
 package com.oroarmor.bakedminecraftmodels;
 
+import java.nio.ByteOrder;
+
 import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 
@@ -36,6 +38,7 @@ import net.fabricmc.api.ClientModInitializer;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
+    public static final int STRUCT_SIZE = (16 + 12) * Float.BYTES;
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
 
     // RenderDoc Vertex Format:

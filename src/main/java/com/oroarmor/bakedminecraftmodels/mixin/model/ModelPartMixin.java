@@ -24,9 +24,11 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
@@ -34,8 +36,13 @@ import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL15C;
+import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL43;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -46,7 +53,6 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.BufferBuilder;
@@ -55,6 +61,8 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix3f;
+import net.minecraft.util.math.Matrix4f;
 
 @Mixin(ModelPart.class)
 public abstract class ModelPartMixin implements ModelID {
@@ -74,6 +82,8 @@ public abstract class ModelPartMixin implements ModelID {
     @Shadow
     @Final
     private Map<String, ModelPart> children;
+
+    @Shadow public boolean visible;
 
     @Override
     public void setId(int id) {
@@ -107,6 +117,9 @@ public abstract class ModelPartMixin implements ModelID {
     @Nullable
     protected VertexBuffer bmm$bakedVertices;
 
+    @Unique
+    private static final Map<Integer, Integer> bmm$SIZE_TO_GL_BUFFER = new Int2IntOpenHashMap();
+
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"), cancellable = true)
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         BufferBuilder nestedBufferBuilder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
@@ -125,24 +138,55 @@ public abstract class ModelPartMixin implements ModelID {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
 
-            GlUniform normalMatUniform = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("NormalMat");
-            matrices.peek().getNormal().writeColumnMajor(normalMatUniform.getFloatData());
-
+            matrices.push();
             bmm$buildingMatrices = true;
             ObjectArrayList<MatrixStack.Entry> entries = new ObjectArrayList<>();
             this.bmm$createMatrixTransformations(matrices, entries);
             bmm$buildingMatrices = false;
+            matrices.pop();
+
+            int ssboSize = entries.size() * BakedMinecraftModels.STRUCT_SIZE;
+
+            int ssbo = bmm$SIZE_TO_GL_BUFFER.computeIfAbsent(ssboSize, _size -> {
+                int _ssbo = GlStateManager._glGenBuffers();
+                GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, _ssbo);
+                GlStateManager._glBufferData(GL43.GL_SHADER_STORAGE_BUFFER, _size, GL15.GL_DYNAMIC_DRAW);
+                return _ssbo;
+            });
+
+            GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, ssbo);
+            ByteBuffer buffer = GlStateManager.mapBuffer(GL43.GL_SHADER_STORAGE_BUFFER, GL15C.GL_WRITE_ONLY);
+            assert buffer != null;
+            for (int i = 0; i < entries.size(); i++) {
+                MatrixStack.Entry entry = entries.get(i);
+                buffer.position(i * BakedMinecraftModels.STRUCT_SIZE);
+                if (entry != null) {
+                    Matrix4f model = entry.getModel();
+                    buffer.putFloat(model.a00).putFloat(model.a10).putFloat(model.a20).putFloat(model.a30)
+                            .putFloat(model.a01).putFloat(model.a11).putFloat(model.a21).putFloat(model.a31)
+                            .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
+                            .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
+
+                    Matrix3f normal = entry.getNormal();
+                    buffer.putFloat(normal.a00).putFloat(normal.a10).putFloat(normal.a20).putFloat(0f)
+                            .putFloat(normal.a01).putFloat(normal.a11).putFloat(normal.a21).putFloat(0f)
+                            .putFloat(normal.a02).putFloat(normal.a12).putFloat(normal.a22).putFloat(0f);
+                }
+            }
+            GlStateManager._glUnmapBuffer(GL43.GL_SHADER_STORAGE_BUFFER);
+
+            GL30.glBindBufferBase(GL43.GL_SHADER_STORAGE_BUFFER, 1, ssbo);
 
             RenderLayer layer = ((RenderLayerCreatedBufferBuilder) nestedBufferBuilder).getRenderLayer();
             if (layer == null) {
                 throw new RuntimeException("This is bad");
             }
 
-            // TODO: turn entry list into a bytebuffer and upload to the gpu
-
             layer.startDrawing();
             bmm$bakedVertices.setShader(matrices.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
             layer.endDrawing();
+
+            GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, 0);
             ci.cancel();
         }
     }
@@ -177,10 +221,12 @@ public abstract class ModelPartMixin implements ModelID {
     private void bmm$createMatrixTransformations(MatrixStack stack, ObjectArrayList<MatrixStack.Entry> entries) {
         stack.push();
         this.rotate(stack);
-        while(entries.size() <= bmm$id) {
+        while (entries.size() <= bmm$id) {
             entries.add(null);
         }
-        entries.set(bmm$id, stack.peek());
+        if (this.visible) {
+            entries.set(bmm$id, stack.peek());
+        }
         for (ModelPart child : children.values()) {
             ((ModelPartMixin) (Object) child).bmm$createMatrixTransformations(stack, entries);
         }
