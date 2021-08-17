@@ -25,6 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import java.util.List;
+import java.util.Map;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
@@ -33,6 +34,7 @@ import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -66,6 +68,13 @@ public abstract class ModelPartMixin implements ModelID {
     @Shadow
     public abstract void render(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha);
 
+    @Shadow
+    public abstract void rotate(MatrixStack matrix);
+
+    @Shadow
+    @Final
+    private Map<String, ModelPart> children;
+
     @Override
     public void setId(int id) {
         bmm$id = id;
@@ -79,16 +88,20 @@ public abstract class ModelPartMixin implements ModelID {
 
     @Inject(method = "rotate", at = @At("HEAD"), cancellable = true)
     public void setSsboRotation(MatrixStack matrix, CallbackInfo ci) {
-        if(bmm$usingSmartRenderer) {
+        if (bmm$usingSmartRenderer && !bmm$buildingMatrices) {
             ci.cancel();
         }
     }
+
 
     @Unique
     private static Object bmm$initialModelPartForBaking = null;
 
     @Unique
     private static boolean bmm$usingSmartRenderer = false;
+
+    @Unique
+    private static boolean bmm$buildingMatrices;
 
     @Unique
     @Nullable
@@ -115,10 +128,18 @@ public abstract class ModelPartMixin implements ModelID {
             GlUniform normalMatUniform = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("NormalMat");
             matrices.peek().getNormal().writeColumnMajor(normalMatUniform.getFloatData());
 
+            bmm$buildingMatrices = true;
+            ObjectArrayList<MatrixStack.Entry> entries = new ObjectArrayList<>();
+            this.bmm$createMatrixTransformations(matrices, entries);
+            bmm$buildingMatrices = false;
+
             RenderLayer layer = ((RenderLayerCreatedBufferBuilder) nestedBufferBuilder).getRenderLayer();
             if (layer == null) {
                 throw new RuntimeException("This is bad");
             }
+
+            // TODO: turn entry list into a bytebuffer and upload to the gpu
+
             layer.startDrawing();
             bmm$bakedVertices.setShader(matrices.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
             layer.endDrawing();
@@ -150,5 +171,19 @@ public abstract class ModelPartMixin implements ModelID {
             bmm$initialModelPartForBaking = null;
             bmm$usingSmartRenderer = false;
         }
+    }
+
+    @Unique
+    private void bmm$createMatrixTransformations(MatrixStack stack, ObjectArrayList<MatrixStack.Entry> entries) {
+        stack.push();
+        this.rotate(stack);
+        while(entries.size() <= bmm$id) {
+            entries.add(null);
+        }
+        entries.set(bmm$id, stack.peek());
+        for (ModelPart child : children.values()) {
+            ((ModelPartMixin) (Object) child).bmm$createMatrixTransformations(stack, entries);
+        }
+        stack.pop();
     }
 }
