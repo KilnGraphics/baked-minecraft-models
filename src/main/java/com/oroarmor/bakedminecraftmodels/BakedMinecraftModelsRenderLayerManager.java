@@ -30,6 +30,7 @@ import java.util.Map;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
+import net.minecraft.client.render.VertexFormats;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.render.RenderLayer;
@@ -38,9 +39,13 @@ import net.minecraft.client.render.RenderPhase;
 public class BakedMinecraftModelsRenderLayerManager {
     private static final Map<RenderLayer, RenderLayer> dumbToSmart = new HashMap<>();
 
-    public static RenderLayer deriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
+    public static RenderLayer tryDeriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
         if (dumbRenderLayer == null) {
             return null;
+        }
+
+        if (!dumbRenderLayer.getVertexFormat().equals(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)) {
+            return dumbRenderLayer;
         }
 
         return dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {

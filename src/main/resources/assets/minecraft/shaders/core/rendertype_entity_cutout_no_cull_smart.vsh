@@ -36,10 +36,12 @@ out vec2 texCoord0;
 out vec4 normal;
 
 void main() {
-    gl_Position = ProjMat * ssbo.transformations[Id].modelViewMat * vec4(Position, 1.0);
+    VertexTransformation modelTransformation = ssbo.transformations[Id];
 
-    vertexDistance = length((ssbo.transformations[Id].modelViewMat * vec4(Position, 1.0)).xyz);
-    normal = vec4(ssbo.transformations[Id].normalMat * Normal, 0);
+    gl_Position = ProjMat * modelTransformation.modelViewMat * vec4(Position, 1.0);
+
+    vertexDistance = length((modelTransformation.modelViewMat * vec4(Position, 1.0)).xyz);
+    normal = vec4(modelTransformation.normalMat * Normal, 0);
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, normal.xyz, Color);
     lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
     overlayColor = texelFetch(Sampler1, UV1, 0);

@@ -50,6 +50,12 @@ public class BakedMinecraftModels implements ClientModInitializer {
      int id
     */
 
+    // RenderDoc SSBO Format:
+    /*
+     mat4 modelViewMat;
+     mat3x4 normalMat; // ignore 0s at the bottom
+    */
+
     @Override
     public void onInitializeClient() {
         try {
