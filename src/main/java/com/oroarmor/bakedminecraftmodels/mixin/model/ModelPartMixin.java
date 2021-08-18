@@ -172,11 +172,6 @@ public abstract class ModelPartMixin implements ModelID {
                             .putFloat(model.a01).putFloat(model.a11).putFloat(model.a21).putFloat(model.a31)
                             .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
                             .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
-
-                    Matrix3f normal = entry.getNormal();
-                    ssbo.pointer().putFloat(normal.a00).putFloat(normal.a10).putFloat(normal.a20).putFloat(0f)
-                            .putFloat(normal.a01).putFloat(normal.a11).putFloat(normal.a21).putFloat(0f)
-                            .putFloat(normal.a02).putFloat(normal.a12).putFloat(normal.a22).putFloat(0f);
                 }
             }
 

@@ -19,13 +19,12 @@ uniform vec4 Color;
 uniform ivec2 UV1;
 uniform ivec2 UV2;
 
-struct VertexTransformation {
+struct ModelPart {
     mat4 modelViewMat;
-    mat3 normalMat;
 };
 
 layout(std430, binding = 1) buffer ssbo_layout {
-    VertexTransformation[] transformations;
+    ModelPart[] modelParts;
 } ssbo;
 
 out float vertexDistance;
@@ -36,12 +35,12 @@ out vec2 texCoord0;
 out vec4 normal;
 
 void main() {
-    VertexTransformation modelTransformation = ssbo.transformations[Id];
+    ModelPart modelPart = ssbo.modelParts[Id];
 
-    gl_Position = ProjMat * modelTransformation.modelViewMat * vec4(Position, 1.0);
+    gl_Position = ProjMat * modelPart.modelViewMat * vec4(Position, 1.0);
 
-    vertexDistance = length((modelTransformation.modelViewMat * vec4(Position, 1.0)).xyz);
-    normal = vec4(modelTransformation.normalMat * Normal, 0);
+    vertexDistance = length((modelPart.modelViewMat * vec4(Position, 1.0)).xyz);
+    normal = vec4(mat3(modelPart.modelViewMat) * Normal, 0);
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, normal.xyz, Color);
     lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
     overlayColor = texelFetch(Sampler1, UV1, 0);
