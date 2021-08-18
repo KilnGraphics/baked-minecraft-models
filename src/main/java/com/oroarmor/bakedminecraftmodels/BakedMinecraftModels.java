@@ -58,11 +58,11 @@ public class BakedMinecraftModels implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        try {
-            System.loadLibrary("renderdoc");
-        } catch (Throwable e) {
-            System.err.println("Unable to load renderdoc");
-        }
+//        try {
+//            System.loadLibrary("renderdoc");
+//        } catch (Throwable e) {
+//            System.err.println("Unable to load renderdoc");
+//        }
 
         if (EXPORT_MODELS_TO_OBJ) {
             ModelExporter.exportDefaultModelsToOBJ();

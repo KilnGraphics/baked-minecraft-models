@@ -33,8 +33,6 @@ import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SsboInfo;
-import it.unimi.dsi.fastutil.ints.Int2LongMap;
-import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -57,7 +55,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -117,7 +114,10 @@ public abstract class ModelPartMixin implements ModelID {
     private static final Int2ObjectMap<SsboInfo> bmm$SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
 
     @Unique
-    private static final int BUFFER_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT | ARBBufferStorage.GL_MAP_COHERENT_BIT;
+    private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+
+    @Unique
+    private static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
 
     @Unique
     private static long syncObj = MemoryUtil.NULL;
@@ -152,8 +152,8 @@ public abstract class ModelPartMixin implements ModelID {
             SsboInfo ssbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(ssboSize, _size -> {
                 int name = GlStateManager._glGenBuffers();
                 GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, name);
-                ARBBufferStorage.nglBufferStorage(GL43.GL_SHADER_STORAGE_BUFFER, _size, MemoryUtil.NULL, BUFFER_FLAGS);
-                return new SsboInfo(GL30C.glMapBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, _size, BUFFER_FLAGS), name);
+                ARBBufferStorage.nglBufferStorage(GL43.GL_SHADER_STORAGE_BUFFER, _size, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+                return new SsboInfo(GL30C.glMapBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, _size, BUFFER_MAP_FLAGS), name);
             });
 
             if (syncObj != MemoryUtil.NULL) {
@@ -179,6 +179,8 @@ public abstract class ModelPartMixin implements ModelID {
                             .putFloat(normal.a02).putFloat(normal.a12).putFloat(normal.a22).putFloat(0f);
                 }
             }
+
+            GL30C.glFlushMappedBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, ssboSize);
 
             if (syncObj != MemoryUtil.NULL) {
                 GL32C.glDeleteSync(syncObj);
