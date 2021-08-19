@@ -43,7 +43,10 @@ import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Matrix4f;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.opengl.*;
+import org.lwjgl.opengl.ARBBufferStorage;
+import org.lwjgl.opengl.ARBShaderStorageBufferObject;
+import org.lwjgl.opengl.GL30C;
+import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -54,7 +57,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -140,12 +142,10 @@ public abstract class ModelPartMixin implements ModelID {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
 
-            matrices.push();
             bmm$buildingMatrices = true;
             ObjectArrayList<MatrixStack.Entry> entries = new ObjectArrayList<>();
             this.bmm$createMatrixTransformations(matrices, entries);
             bmm$buildingMatrices = false;
-            matrices.pop();
 
             // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
             SectionedPbo pbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(entries.size() * BakedMinecraftModels.STRUCT_SIZE, ssboSize -> {
