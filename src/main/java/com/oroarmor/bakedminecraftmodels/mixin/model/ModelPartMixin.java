@@ -35,6 +35,8 @@ import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
@@ -57,6 +59,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -114,6 +118,17 @@ public abstract class ModelPartMixin implements ModelID {
 
     @Unique
     private static final Int2ObjectMap<SectionedPbo> bmm$SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
+
+    @Unique
+    private static final ByteBuffer IDENTITY_MATRIX_BUFFER;
+
+    static {
+        Matrix4f identityMatrix = new Matrix4f();
+        identityMatrix.loadIdentity();
+        FloatBuffer matrixBuffer = MemoryUtil.memAllocFloat(16);
+        identityMatrix.writeColumnMajor(matrixBuffer);
+        IDENTITY_MATRIX_BUFFER = MemoryUtil.memByteBuffer(MemoryUtil.memAddress(matrixBuffer), matrixBuffer.capacity());
+    }
 
     @Unique
     private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
@@ -187,7 +202,7 @@ public abstract class ModelPartMixin implements ModelID {
                             .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
                             .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
                 } else {
-                    MemoryUtil.memSet(MemoryUtil.memAddress(pbo.getPointer()), 0, BakedMinecraftModels.STRUCT_SIZE);
+                    pbo.getPointer().put(IDENTITY_MATRIX_BUFFER);
                 }
             }
 
