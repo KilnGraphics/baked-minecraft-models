@@ -38,7 +38,7 @@ import net.fabricmc.api.ClientModInitializer;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
-    public static final int STRUCT_SIZE = 16 * Float.BYTES; //(16 + 12) * Float.BYTES;
+    public static final int STRUCT_SIZE = 16 * Float.BYTES;
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
 
     // RenderDoc Vertex Format:
@@ -53,16 +53,15 @@ public class BakedMinecraftModels implements ClientModInitializer {
     // RenderDoc SSBO Format:
     /*
      mat4 modelViewMat;
-     mat3x4 normalMat; // ignore 0s at the bottom
     */
 
     @Override
     public void onInitializeClient() {
-        try {
-            System.loadLibrary("renderdoc");
-        } catch (Throwable e) {
-            System.err.println("Unable to load renderdoc");
-        }
+//        try {
+//            System.loadLibrary("renderdoc");
+//        } catch (Throwable e) {
+//            System.err.println("Unable to load renderdoc");
+//        }
 
         if (EXPORT_MODELS_TO_OBJ) {
             ModelExporter.exportDefaultModelsToOBJ();

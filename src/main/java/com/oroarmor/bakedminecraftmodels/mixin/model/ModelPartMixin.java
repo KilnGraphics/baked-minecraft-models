@@ -32,7 +32,7 @@ import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.ModelID;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import com.oroarmor.bakedminecraftmodels.ssbo.SsboInfo;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -41,7 +41,6 @@ import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.*;
@@ -111,7 +110,7 @@ public abstract class ModelPartMixin implements ModelID {
     protected VertexBuffer bmm$bakedVertices;
 
     @Unique
-    private static final Int2ObjectMap<SsboInfo> bmm$SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
+    private static final Int2ObjectMap<SectionedPbo> bmm$SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
 
     @Unique
     private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
@@ -120,7 +119,7 @@ public abstract class ModelPartMixin implements ModelID {
     private static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
 
     @Unique
-    private static long syncObj = MemoryUtil.NULL;
+    private static final int BUFFER_SECTIONS = 3;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"), cancellable = true)
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
@@ -147,42 +146,54 @@ public abstract class ModelPartMixin implements ModelID {
             bmm$buildingMatrices = false;
             matrices.pop();
 
-            int ssboSize = entries.size() * BakedMinecraftModels.STRUCT_SIZE;
-
-            SsboInfo ssbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(ssboSize, _size -> {
+            // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
+            SectionedPbo pbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(entries.size() * BakedMinecraftModels.STRUCT_SIZE, ssboSize -> {
                 int name = GlStateManager._glGenBuffers();
                 GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, name);
-                ARBBufferStorage.nglBufferStorage(GL43.GL_SHADER_STORAGE_BUFFER, _size, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
-                return new SsboInfo(GL30C.glMapBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, _size, BUFFER_MAP_FLAGS), name);
+                int fullSize = ssboSize * BUFFER_SECTIONS;
+                ARBBufferStorage.nglBufferStorage(GL43.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+                return new SectionedPbo(
+                        GL30C.glMapBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
+                        name,
+                        BUFFER_SECTIONS,
+                        ssboSize
+                );
             });
 
-            if (syncObj != MemoryUtil.NULL) {
+            long currentSyncObject = pbo.getCurrentSyncObject();
+
+            if (currentSyncObject != MemoryUtil.NULL) {
                 int waitReturn = GL32C.GL_UNSIGNALED;
                 while (waitReturn != GL32C.GL_ALREADY_SIGNALED && waitReturn != GL32C.GL_CONDITION_SATISFIED) {
-                    waitReturn = GL32C.glClientWaitSync(syncObj, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 1);
+                    waitReturn = GL32C.glClientWaitSync(currentSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 1);
                 }
             }
 
+            int sectionStartPos = pbo.getCurrentSection() * pbo.getSectionSize();
+
             for (int i = 0; i < entries.size(); i++) {
                 MatrixStack.Entry entry = entries.get(i);
-                ssbo.pointer().position(i * BakedMinecraftModels.STRUCT_SIZE);
+                pbo.getPointer().position(i * BakedMinecraftModels.STRUCT_SIZE + sectionStartPos);
                 if (entry != null) {
                     Matrix4f model = entry.getModel();
-                    ssbo.pointer().putFloat(model.a00).putFloat(model.a10).putFloat(model.a20).putFloat(model.a30)
+                    pbo.getPointer().putFloat(model.a00).putFloat(model.a10).putFloat(model.a20).putFloat(model.a30)
                             .putFloat(model.a01).putFloat(model.a11).putFloat(model.a21).putFloat(model.a31)
                             .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
                             .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
                 }
             }
 
-            GL30C.glFlushMappedBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, ssboSize);
+            GL30C.glFlushMappedBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, sectionStartPos, pbo.getSectionSize());
 
-            if (syncObj != MemoryUtil.NULL) {
-                GL32C.glDeleteSync(syncObj);
+            if (currentSyncObject != MemoryUtil.NULL) {
+                GL32C.glDeleteSync(currentSyncObject);
             }
-            syncObj = GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            pbo.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-            GL30.glBindBufferBase(GL43.GL_SHADER_STORAGE_BUFFER, 1, ssbo.name());
+//            GL30C.glBindBufferBase(GL43.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName());
+            GL30C.glBindBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName(), sectionStartPos, pbo.getSectionSize());
+
+            pbo.nextSection();
 
             RenderLayer layer = ((RenderLayerCreatedBufferBuilder) nestedBufferBuilder).getRenderLayer();
             if (layer == null) {
