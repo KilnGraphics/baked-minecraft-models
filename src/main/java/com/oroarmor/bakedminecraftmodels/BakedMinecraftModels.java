@@ -40,6 +40,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
     public static final int STRUCT_SIZE = 16 * Float.BYTES;
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
+    private static final boolean ENABLE_RENDERDOC = true;
 
     // RenderDoc Vertex Format:
     /*
@@ -57,11 +58,13 @@ public class BakedMinecraftModels implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-//        try {
-//            System.loadLibrary("renderdoc");
-//        } catch (Throwable e) {
-//            System.err.println("Unable to load renderdoc");
-//        }
+        if (ENABLE_RENDERDOC) {
+            try {
+                System.loadLibrary("renderdoc");
+            } catch (Throwable e) {
+                System.err.println("Unable to load renderdoc");
+            }
+        }
 
         if (EXPORT_MODELS_TO_OBJ) {
             ModelExporter.exportDefaultModelsToOBJ();

@@ -54,6 +54,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -149,16 +150,21 @@ public abstract class ModelPartMixin implements ModelID {
             // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
             SectionedPbo pbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(entries.size() * BakedMinecraftModels.STRUCT_SIZE, ssboSize -> {
                 int name = GlStateManager._glGenBuffers();
-                GlStateManager._glBindBuffer(GL43.GL_SHADER_STORAGE_BUFFER, name);
+                GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
                 int fullSize = ssboSize * BUFFER_SECTIONS;
-                ARBBufferStorage.nglBufferStorage(GL43.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+                // TODO: nglNamedBufferStorage or nglNamedBufferStorageEXT
+                ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
                 return new SectionedPbo(
-                        GL30C.glMapBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
+                        GL30C.glMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
                         name,
                         BUFFER_SECTIONS,
                         ssboSize
                 );
             });
+
+            if (pbo.shouldBindBuffer()) {
+                GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, pbo.getName());
+            }
 
             long currentSyncObject = pbo.getCurrentSyncObject();
 
@@ -180,18 +186,20 @@ public abstract class ModelPartMixin implements ModelID {
                             .putFloat(model.a01).putFloat(model.a11).putFloat(model.a21).putFloat(model.a31)
                             .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
                             .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
+                } else {
+                    MemoryUtil.memSet(MemoryUtil.memAddress(pbo.getPointer()), 0, BakedMinecraftModels.STRUCT_SIZE);
                 }
             }
 
-            GL30C.glFlushMappedBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, sectionStartPos, pbo.getSectionSize());
+            // TODO: glFlushMappedNamedBufferRange
+            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, sectionStartPos, pbo.getSectionSize());
 
             if (currentSyncObject != MemoryUtil.NULL) {
                 GL32C.glDeleteSync(currentSyncObject);
             }
             pbo.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-//            GL30C.glBindBufferBase(GL43.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName());
-            GL30C.glBindBufferRange(GL43.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName(), sectionStartPos, pbo.getSectionSize());
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName(), sectionStartPos, pbo.getSectionSize());
 
             pbo.nextSection();
 
