@@ -24,10 +24,10 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
-import com.oroarmor.bakedminecraftmodels.access.ModelID;
+import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -39,7 +39,7 @@ import net.minecraft.client.render.BufferVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
 
 @Mixin(ModelPart.Cuboid.class)
-public class CuboidMixin implements ModelID {
+public class CuboidMixin implements BakeablePart {
     @Unique
     private int bmm$id;
 
@@ -55,20 +55,17 @@ public class CuboidMixin implements ModelID {
 
     @Redirect(method = "renderCuboid", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/VertexConsumer;vertex(FFFFFFFFFIIFFF)V"))
     public void setVertexID(VertexConsumer vertexConsumer, float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
-        BufferBuilder parent = BakedMinecraftModels.getNestedBufferBuilder(vertexConsumer);
+        BufferBuilder nestedBufferBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
 
-        BufferBuilderAccessor parentAccessor = (BufferBuilderAccessor) parent;
+        BufferBuilderAccessor nestedAccessor = (BufferBuilderAccessor) nestedBufferBuilder;
 
-        if (parentAccessor.getFormat() != BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT) {
-            vertexConsumer.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
-        } else {
-            vertexConsumer.vertex(x, y, z);
-            vertexConsumer.texture(u, v);
-            vertexConsumer.normal(normalX, normalY, normalZ);
-            parentAccessor.getBuffer().putInt(parentAccessor.getElementOffset(), bmm$id);
-            ((BufferVertexConsumer) parent).nextElement();
-
+        if (GlobalModelUtils.isSmartBufferBuilder(nestedBufferBuilder)) {
+            vertexConsumer.vertex(x, y, z).texture(u, v).normal(normalX, normalY, normalZ);
+            nestedAccessor.getBuffer().putInt(nestedAccessor.getElementOffset(), bmm$id);
+            nestedBufferBuilder.nextElement();
             vertexConsumer.next();
+        } else {
+            vertexConsumer.vertex(x, y, z, red, green, blue, alpha, u, v, overlay, light, normalX, normalY, normalZ);
         }
     }
 }

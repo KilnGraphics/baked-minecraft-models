@@ -26,9 +26,12 @@ package com.oroarmor.bakedminecraftmodels.access;
 
 import org.jetbrains.annotations.Nullable;
 
-public interface ModelIDBuilder extends ModelID {
-    void setParent(ModelIDBuilder parent);
-    @Nullable ModelIDBuilder getParent();
+public interface BakeablePartBuilder {
+    void setId(int id);
+    int getId();
+
+    void setParent(BakeablePartBuilder parent);
+    @Nullable BakeablePartBuilder getParent();
 
     int getNextAvailableModelId();
 }

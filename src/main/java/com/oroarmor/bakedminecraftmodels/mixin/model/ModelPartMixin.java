@@ -24,71 +24,41 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
-import com.oroarmor.bakedminecraftmodels.access.ModelID;
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.VertexBuffer;
+import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
+import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.render.*;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix4f;
-import org.jetbrains.annotations.Nullable;
-import org.lwjgl.opengl.ARBBufferStorage;
-import org.lwjgl.opengl.ARBShaderStorageBufferObject;
-import org.lwjgl.opengl.GL30C;
-import org.lwjgl.opengl.GL32C;
-import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.util.List;
-import java.util.Map;
 
 @Mixin(ModelPart.class)
-public abstract class ModelPartMixin implements ModelID {
+public abstract class ModelPartMixin implements BakeablePart {
+
     @Unique
     private int bmm$id;
+
+    @Unique
+    private boolean bmm$usingSmartRenderer;
 
     @Shadow
     @Final
     private List<ModelPart.Cuboid> cuboids;
 
     @Shadow
-    public abstract void render(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha);
-
-    @Shadow
-    public abstract void rotate(MatrixStack matrix);
-
-    @Shadow
-    @Final
-    private Map<String, ModelPart> children;
-
-    @Shadow public boolean visible;
+    public boolean visible;
 
     @Override
     public void setId(int id) {
         bmm$id = id;
-        cuboids.forEach(cuboid -> ((ModelID) cuboid).setId(bmm$id));
+        cuboids.forEach(cuboid -> ((BakeablePart) cuboid).setId(bmm$id));
     }
 
     @Override
@@ -96,180 +66,29 @@ public abstract class ModelPartMixin implements ModelID {
         return bmm$id;
     }
 
-    @Inject(method = "rotate", at = @At("HEAD"), cancellable = true)
-    public void setSsboRotation(MatrixStack matrix, CallbackInfo ci) {
-        if (bmm$usingSmartRenderer && !bmm$buildingMatrices) {
-            ci.cancel();
+    @Inject(method = "rotate", at = @At("HEAD"))
+    public void pushMatrixStack(MatrixStack matrices, CallbackInfo ci) {
+        if (bmm$usingSmartRenderer) {
+            matrices.push();
         }
     }
 
-    @Unique
-    private static Object bmm$initialModelPartForBaking = null;
-
-    @Unique
-    private static boolean bmm$usingSmartRenderer = false;
-
-    @Unique
-    private static boolean bmm$buildingMatrices;
-
-    @Unique
-    @Nullable
-    protected VertexBuffer bmm$bakedVertices;
-
-    @Unique
-    private static final Int2ObjectMap<SectionedPbo> bmm$SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
-
-    @Unique
-    private static final ByteBuffer IDENTITY_MATRIX_BUFFER;
-
-    static {
-        Matrix4f identityMatrix = new Matrix4f();
-        identityMatrix.loadIdentity();
-        FloatBuffer matrixBuffer = MemoryUtil.memAllocFloat(16);
-        identityMatrix.writeColumnMajor(matrixBuffer);
-        IDENTITY_MATRIX_BUFFER = MemoryUtil.memByteBuffer(MemoryUtil.memAddress(matrixBuffer), matrixBuffer.capacity());
+    @Inject(method = "rotate", at = @At("TAIL"))
+    public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
+        if (bmm$usingSmartRenderer) {
+            while (GlobalModelUtils.currentMatrices.size() <= bmm$id) {
+                GlobalModelUtils.currentMatrices.add(null);
+            }
+            if (this.visible) {
+                GlobalModelUtils.currentMatrices.set(bmm$id, matrices.peek().getModel());
+            }
+            matrices.pop();
+        }
     }
 
-    @Unique
-    private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-
-    @Unique
-    private static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-
-    @Unique
-    private static final int BUFFER_SECTIONS = 3;
-
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        BufferBuilder nestedBufferBuilder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
-
-        bmm$usingSmartRenderer = ((BufferBuilderAccessor) nestedBufferBuilder).getFormat() == BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT;
-
-        if (bmm$initialModelPartForBaking == null && bmm$bakedVertices == null) {
-            bmm$initialModelPartForBaking = this;
-            if (!nestedBufferBuilder.isBuilding() && bmm$usingSmartRenderer) {
-                nestedBufferBuilder.begin(VertexFormat.DrawMode.QUADS, BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
-            }
-        }
-
-        if (bmm$bakedVertices != null && bmm$usingSmartRenderer) {
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("Color").set(red, green, blue, alpha);
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
-            BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
-
-            bmm$buildingMatrices = true;
-            ObjectArrayList<MatrixStack.Entry> entries = new ObjectArrayList<>();
-            this.bmm$createMatrixTransformations(matrices, entries);
-            bmm$buildingMatrices = false;
-
-            // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
-            SectionedPbo pbo = bmm$SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(entries.size() * BakedMinecraftModels.STRUCT_SIZE, ssboSize -> {
-                int name = GlStateManager._glGenBuffers();
-                GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
-                int fullSize = ssboSize * BUFFER_SECTIONS;
-                // TODO: nglNamedBufferStorage or nglNamedBufferStorageEXT
-                ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
-                return new SectionedPbo(
-                        GL30C.glMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
-                        name,
-                        BUFFER_SECTIONS,
-                        ssboSize
-                );
-            });
-
-            if (pbo.shouldBindBuffer()) {
-                GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, pbo.getName());
-            }
-
-            long currentSyncObject = pbo.getCurrentSyncObject();
-
-            if (currentSyncObject != MemoryUtil.NULL) {
-                int waitReturn = GL32C.GL_UNSIGNALED;
-                while (waitReturn != GL32C.GL_ALREADY_SIGNALED && waitReturn != GL32C.GL_CONDITION_SATISFIED) {
-                    waitReturn = GL32C.glClientWaitSync(currentSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 1);
-                }
-            }
-
-            int sectionStartPos = pbo.getCurrentSection() * pbo.getSectionSize();
-
-            for (int i = 0; i < entries.size(); i++) {
-                MatrixStack.Entry entry = entries.get(i);
-                pbo.getPointer().position(i * BakedMinecraftModels.STRUCT_SIZE + sectionStartPos);
-                if (entry != null) {
-                    Matrix4f model = entry.getModel();
-                    pbo.getPointer().putFloat(model.a00).putFloat(model.a10).putFloat(model.a20).putFloat(model.a30)
-                            .putFloat(model.a01).putFloat(model.a11).putFloat(model.a21).putFloat(model.a31)
-                            .putFloat(model.a02).putFloat(model.a12).putFloat(model.a22).putFloat(model.a32)
-                            .putFloat(model.a03).putFloat(model.a13).putFloat(model.a23).putFloat(model.a33);
-                } else {
-                    pbo.getPointer().put(IDENTITY_MATRIX_BUFFER);
-                }
-            }
-
-            // TODO: glFlushMappedNamedBufferRange
-            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, sectionStartPos, pbo.getSectionSize());
-
-            if (currentSyncObject != MemoryUtil.NULL) {
-                GL32C.glDeleteSync(currentSyncObject);
-            }
-            pbo.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
-
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName(), sectionStartPos, pbo.getSectionSize());
-
-            pbo.nextSection();
-
-            RenderLayer layer = ((RenderLayerCreatedBufferBuilder) nestedBufferBuilder).getRenderLayer();
-            if (layer == null) {
-                throw new RuntimeException("This is bad");
-            }
-
-            layer.startDrawing();
-            bmm$bakedVertices.setShader(matrices.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
-            layer.endDrawing();
-
-            ci.cancel();
-        }
+        bmm$usingSmartRenderer = GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertices));
     }
 
-    @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
-    public MatrixStack changeMatrixStack(MatrixStack stack) {
-        if (bmm$initialModelPartForBaking == this && bmm$bakedVertices == null) {
-            return new MatrixStack();
-        }
-        return stack;
-    }
-
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
-    public void createVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (bmm$bakedVertices == null && bmm$usingSmartRenderer && bmm$initialModelPartForBaking == this) {
-            BufferBuilder builder = BakedMinecraftModels.getNestedBufferBuilder(vertices);
-            if (MinecraftClient.getInstance().getWindow() != null) {
-                builder.end();
-                bmm$bakedVertices = new VertexBuffer();
-                bmm$bakedVertices.upload(builder);
-                this.render(matrices, vertices, light, overlay, red, green, blue, alpha);
-            }
-        }
-
-        if (bmm$initialModelPartForBaking == this) {
-            bmm$initialModelPartForBaking = null;
-            bmm$usingSmartRenderer = false;
-        }
-    }
-
-    @Unique
-    private void bmm$createMatrixTransformations(MatrixStack stack, ObjectArrayList<MatrixStack.Entry> entries) {
-        stack.push();
-        this.rotate(stack);
-        while (entries.size() <= bmm$id) {
-            entries.add(null);
-        }
-        if (this.visible) {
-            entries.set(bmm$id, stack.peek());
-        }
-        for (ModelPart child : children.values()) {
-            ((ModelPartMixin) (Object) child).bmm$createMatrixTransformations(stack, entries);
-        }
-        stack.pop();
-    }
 }

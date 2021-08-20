@@ -24,20 +24,14 @@
 
 package com.oroarmor.bakedminecraftmodels;
 
-import java.nio.ByteOrder;
-
 import com.oroarmor.bakedminecraftmodels.debug.ModelExporter;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
-
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.SpriteTexturedVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.util.Identifier;
-
 import net.fabricmc.api.ClientModInitializer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
+    public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
     public static final int STRUCT_SIZE = 16 * Float.BYTES;
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
     private static final boolean ENABLE_RENDERDOC = true;
@@ -71,13 +65,4 @@ public class BakedMinecraftModels implements ClientModInitializer {
         }
     }
 
-    public static Identifier id(String path) {
-        return new Identifier(MOD_ID, path);
-    }
-
-    public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) {
-        return consumer instanceof SpriteTexturedVertexConsumer ?
-                (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) consumer).getParent() :
-                (BufferBuilder) consumer;
-    }
 }

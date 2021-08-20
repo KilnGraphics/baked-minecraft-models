@@ -67,4 +67,7 @@ public interface MultiPhaseParametersAccessor {
 
     @Accessor
     RenderLayer.OutlineMode getOutlineMode();
+
+    @Accessor
+    RenderPhase.Shader getShader();
 }

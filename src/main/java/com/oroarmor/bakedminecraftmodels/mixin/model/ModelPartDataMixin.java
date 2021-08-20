@@ -24,11 +24,13 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import com.oroarmor.bakedminecraftmodels.access.ModelID;
-import com.oroarmor.bakedminecraftmodels.access.ModelIDBuilder;
+import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
+import com.oroarmor.bakedminecraftmodels.access.BakeablePartBuilder;
+import it.unimi.dsi.fastutil.ints.*;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.model.ModelPartBuilder;
+import net.minecraft.client.model.ModelPartData;
+import net.minecraft.client.model.ModelTransform;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -37,13 +39,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.model.ModelPartBuilder;
-import net.minecraft.client.model.ModelPartData;
-import net.minecraft.client.model.ModelTransform;
-
 @Mixin(ModelPartData.class)
-public class ModelPartDataMixin implements ModelIDBuilder {
+public class ModelPartDataMixin implements BakeablePartBuilder {
     @Unique
     private int bmm$id = 0;
 
@@ -51,11 +48,11 @@ public class ModelPartDataMixin implements ModelIDBuilder {
     private int bmm$nextId = 1;
 
     @Unique
-    private final Set<Integer> bmm$reusableIds = new HashSet<>();
+    private final IntSortedSet bmm$reusableIdQueue = new IntRBTreeSet();
 
     @Unique
     @Nullable
-    private ModelIDBuilder bmm$parent;
+    private BakeablePartBuilder bmm$parent;
 
     @Override
     public void setId(int id) {
@@ -69,33 +66,32 @@ public class ModelPartDataMixin implements ModelIDBuilder {
     }
 
     @Override
-    public void setParent(ModelIDBuilder parent) {
+    public void setParent(BakeablePartBuilder parent) {
         bmm$parent = parent;
     }
 
     @Override
-    public @Nullable ModelIDBuilder getParent() {
+    public @Nullable BakeablePartBuilder getParent() {
         return bmm$parent;
     }
 
     @Override
     public int getNextAvailableModelId() {
         if (getParent() == null) {
-            if (bmm$reusableIds.isEmpty()) {
+            if (bmm$reusableIdQueue.isEmpty()) {
                 return bmm$nextId++;
+            } else {
+                int id = bmm$reusableIdQueue.firstInt();
+                bmm$reusableIdQueue.remove(id);
+                return id;
             }
-            int id = bmm$reusableIds.stream().sorted().findFirst().orElse(-1);
-            if (!bmm$reusableIds.remove(id)){
-                throw new RuntimeException("That's a real issue");
-            }
-            return id;
         }
         return getParent().getNextAvailableModelId();
     }
 
     @Inject(method = "addChild", at = @At("RETURN"))
     public void addChildID(String name, ModelPartBuilder builder, ModelTransform rotationData, CallbackInfoReturnable<ModelPartData> cir) {
-        ModelIDBuilder child = (ModelIDBuilder) cir.getReturnValue();
+        BakeablePartBuilder child = (BakeablePartBuilder) cir.getReturnValue();
         child.setParent(this);
         child.setId(this.getNextAvailableModelId());
     }
@@ -103,22 +99,22 @@ public class ModelPartDataMixin implements ModelIDBuilder {
     @Inject(method = "addChild", at = @At(value = "INVOKE", target = "Ljava/util/Map;putAll(Ljava/util/Map;)V"), locals = LocalCapture.CAPTURE_FAILSOFT)
     public void removeOldId(String name, ModelPartBuilder builder, ModelTransform rotationData, CallbackInfoReturnable<ModelPartData> cir, ModelPartData modelPartData, ModelPartData modelPartData2){
         if (modelPartData2 != null) {
-            bmm$makeIdReusable(((ModelID) modelPartData2).getId());
+            bmm$makeIdReusable(((BakeablePartBuilder) modelPartData2).getId());
         }
     }
 
     @Unique
     private void bmm$makeIdReusable(int id) {
-        ModelIDBuilder parent = this;
+        BakeablePartBuilder parent = this;
         while (parent != null && parent.getParent() != null) {
             parent = parent.getParent();
         }
 
-        ((ModelPartDataMixin) parent).bmm$reusableIds.add(id);
+        ((ModelPartDataMixin) parent).bmm$reusableIdQueue.add(id);
     }
 
     @Inject(method = "createPart", at = @At("RETURN"))
     public void setModelPartID(int textureWidth, int textureHeight, CallbackInfoReturnable<ModelPart> cir) {
-        ((ModelID) (Object) cir.getReturnValue()).setId(this.bmm$id);
+        ((BakeablePart) (Object) cir.getReturnValue()).setId(this.bmm$id);
     }
 }

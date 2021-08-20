@@ -24,7 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.access;
 
-public interface ModelID {
+public interface BakeablePart {
     void setId(int id);
     int getId();
 }

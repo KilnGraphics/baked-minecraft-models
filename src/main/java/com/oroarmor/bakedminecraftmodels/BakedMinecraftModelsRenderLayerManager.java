@@ -38,6 +38,7 @@ import net.minecraft.client.render.RenderPhase;
 
 public class BakedMinecraftModelsRenderLayerManager {
     private static final Map<RenderLayer, RenderLayer> dumbToSmart = new HashMap<>();
+    public static final RenderPhase.Shader SMART_ENTITY_CUTOUT_NO_CULL_PHASE = new RenderPhase.Shader(() -> BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
 
     public static RenderLayer tryDeriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
         if (dumbRenderLayer == null) {
@@ -61,7 +62,7 @@ public class BakedMinecraftModelsRenderLayerManager {
                     .lineWidth(dumbMultiPhaseParameters.getLineWidth())
                     .overlay(dumbMultiPhaseParameters.getOverlay())
                     // TODO: actually check the renderlayer to determine the shader, not a huge issue right now, but will cause issues later
-                    .shader(new RenderPhase.Shader(() -> BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL))
+                    .shader(SMART_ENTITY_CUTOUT_NO_CULL_PHASE)
                     .target(dumbMultiPhaseParameters.getTarget())
                     .texture(dumbMultiPhaseParameters.getTexture())
                     .texturing(dumbMultiPhaseParameters.getTexturing())
