@@ -48,6 +48,9 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Unique
     private boolean bmm$usingSmartRenderer;
 
+    @Unique
+    private boolean bmm$rotateOnly;
+
     @Shadow
     @Final
     private List<ModelPart.Cuboid> cuboids;
@@ -69,7 +72,7 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Inject(method = "rotate", at = @At("HEAD"))
     public void pushMatrixStack(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
-//            matrices.push();
+            matrices.push();
         }
     }
 
@@ -82,13 +85,21 @@ public abstract class ModelPartMixin implements BakeablePart {
             if (this.visible) {
                 GlobalModelUtils.currentMatrices.set(bmm$id, matrices.peek().getModel());
             }
-//            matrices.pop();
+            matrices.pop();
         }
     }
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
-    public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        bmm$usingSmartRenderer = GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertices));
+    public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        bmm$rotateOnly = vertexConsumer == null;
+        bmm$usingSmartRenderer = bmm$rotateOnly || GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertexConsumer));
+    }
+
+    @Inject(method = "renderCuboids", at = @At("HEAD"), cancellable = true)
+    public void forceRotateOnly(MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (bmm$rotateOnly) {
+            ci.cancel();
+        }
     }
 
 }

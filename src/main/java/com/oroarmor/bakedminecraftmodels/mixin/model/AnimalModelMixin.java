@@ -6,10 +6,10 @@ import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
+import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
@@ -24,7 +24,6 @@ import org.lwjgl.opengl.GL30C;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -39,46 +38,66 @@ public abstract class AnimalModelMixin {
     private VertexBuffer bmm$bakedVertices;
 
     @Unique
-    private boolean currentPassBakeable;
+    private boolean bmm$currentPassBakeable;
 
     @Unique
-    private BufferBuilder currentPassNestedBuilder;
+    private BufferBuilder bmm$currentPassNestedBuilder;
 
     @Unique
-    private MatrixStack currentPassOriginalStack;
-
-    @Shadow
-    public abstract void render(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha);
+    private MatrixStack bmm$currentPassOriginalStack;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    private void getCurrentPassStatus(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertices);
-        currentPassBakeable = GlobalModelUtils.isSmartBufferBuilder(currentPassNestedBuilder);
+    private void getCurrentPassStatus(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        bmm$currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
+        bmm$currentPassBakeable = GlobalModelUtils.isSmartBufferBuilder(bmm$currentPassNestedBuilder);
+        bmm$currentPassOriginalStack = matrices;
     }
 
     @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private MatrixStack setMatrixStack(MatrixStack existingStack) {
-        currentPassOriginalStack = existingStack;
-        if (currentPassBakeable) {
+        if (bmm$currentPassBakeable) {
             return GlobalModelUtils.BAKING_MATRIX_STACK;
         } else {
             return existingStack;
         }
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"), cancellable = true)
-    private void renderWithVbo(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (bmm$bakedVertices == null && !currentPassNestedBuilder.isBuilding()
-                && ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) ((RenderLayerCreatedBufferBuilder) currentPassNestedBuilder)
+    @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
+    private VertexConsumer disableImmediateRendering(VertexConsumer existingConsumer) {
+        if (bmm$bakedVertices != null && bmm$currentPassBakeable) {
+            return null;
+        } else {
+            return existingConsumer;
+        }
+    }
+
+    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
+    private void tryBeginBuilder(MatrixStack matrices, VertexConsumer vertices, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (bmm$bakedVertices == null && !bmm$currentPassNestedBuilder.isBuilding()
+                && ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) ((RenderLayerCreatedBufferBuilder) bmm$currentPassNestedBuilder)
                 .getRenderLayer())
                 .getPhases())
                 .getShader()
                 .equals(BakedMinecraftModelsRenderLayerManager.SMART_ENTITY_CUTOUT_NO_CULL_PHASE)) {
-            currentPassNestedBuilder.begin(VertexFormat.DrawMode.QUADS, BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
+            bmm$currentPassNestedBuilder.begin(VertexFormat.DrawMode.QUADS, BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
             throw new RuntimeException("this should never hit");
         }
+    }
 
-        if (bmm$bakedVertices != null && currentPassBakeable) {
+    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
+    private void tryCreateVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (bmm$bakedVertices == null && bmm$currentPassBakeable) {
+            if (MinecraftClient.getInstance().getWindow() != null) {
+                bmm$currentPassNestedBuilder.end();
+                bmm$bakedVertices = new VertexBuffer();
+                bmm$bakedVertices.upload(bmm$currentPassNestedBuilder);
+            }
+        }
+    }
+
+    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
+    private void tryRenderVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (bmm$bakedVertices != null && bmm$currentPassBakeable) {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("Color").set(red, green, blue, alpha);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
@@ -140,27 +159,14 @@ public abstract class AnimalModelMixin {
 
             pbo.nextSection();
 
-            RenderLayer layer = ((RenderLayerCreatedBufferBuilder) currentPassNestedBuilder).getRenderLayer();
+            RenderLayer layer = ((RenderLayerCreatedBufferBuilder) bmm$currentPassNestedBuilder).getRenderLayer();
             if (layer == null) {
                 throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
             }
 
             layer.startDrawing();
-            bmm$bakedVertices.setShader(currentPassOriginalStack.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
+            bmm$bakedVertices.setShader(bmm$currentPassOriginalStack.peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
             layer.endDrawing();
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
-    private void tryCreateVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (bmm$bakedVertices == null && currentPassBakeable) {
-            if (MinecraftClient.getInstance().getWindow() != null) {
-                currentPassNestedBuilder.end();
-                bmm$bakedVertices = new VertexBuffer();
-                bmm$bakedVertices.upload(currentPassNestedBuilder);
-                this.render(matrices, vertexConsumer, light, overlay, red, green, blue, alpha);
-            }
         }
     }
 }
