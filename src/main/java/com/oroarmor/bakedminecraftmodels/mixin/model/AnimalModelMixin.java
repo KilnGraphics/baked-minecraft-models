@@ -2,7 +2,6 @@ package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModels;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
@@ -103,7 +102,7 @@ public abstract class AnimalModelMixin {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
 
             // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
-            SectionedPbo pbo = GlobalModelUtils.SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(GlobalModelUtils.currentMatrices.size() * BakedMinecraftModels.STRUCT_SIZE, ssboSize -> {
+            SectionedPbo pbo = GlobalModelUtils.SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(GlobalModelUtils.currentMatrices.size() * GlobalModelUtils.STRUCT_SIZE, ssboSize -> {
                 int name = GlStateManager._glGenBuffers();
                 GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
                 int fullSize = ssboSize * GlobalModelUtils.BUFFER_SECTIONS;
@@ -134,7 +133,7 @@ public abstract class AnimalModelMixin {
 
             for (int i = 0; i < GlobalModelUtils.currentMatrices.size(); i++) {
                 Matrix4f modelEntry = GlobalModelUtils.currentMatrices.get(i);
-                pbo.getPointer().position(i * BakedMinecraftModels.STRUCT_SIZE + sectionStartPos);
+                pbo.getPointer().position(i * GlobalModelUtils.STRUCT_SIZE + sectionStartPos);
                 if (modelEntry != null) {
                     pbo.getPointer().putFloat(modelEntry.a00).putFloat(modelEntry.a10).putFloat(modelEntry.a20).putFloat(modelEntry.a30)
                             .putFloat(modelEntry.a01).putFloat(modelEntry.a11).putFloat(modelEntry.a21).putFloat(modelEntry.a31)

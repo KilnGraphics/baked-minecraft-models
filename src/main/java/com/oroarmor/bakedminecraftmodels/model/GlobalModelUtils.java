@@ -26,6 +26,8 @@ import java.util.List;
 
 public class GlobalModelUtils {
 
+    public static final int STRUCT_SIZE = 16 * Float.BYTES;
+
     public static final Matrix4f IDENTITY_MATRIX;
     public static final ByteBuffer IDENTITY_MATRIX_BUFFER;
 

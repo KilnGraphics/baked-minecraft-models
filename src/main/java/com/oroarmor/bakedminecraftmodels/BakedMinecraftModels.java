@@ -32,7 +32,6 @@ import org.apache.logging.log4j.Logger;
 public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
-    public static final int STRUCT_SIZE = 16 * Float.BYTES;
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
     private static final boolean ENABLE_RENDERDOC = true;
 
