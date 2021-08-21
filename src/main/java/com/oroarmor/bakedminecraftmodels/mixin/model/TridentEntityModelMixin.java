@@ -4,7 +4,7 @@ import com.oroarmor.bakedminecraftmodels.model.VboModel;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.entity.model.AnimalModel;
+import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(AnimalModel.class)
-public abstract class AnimalModelMixin implements VboModel {
+@Mixin(TridentEntityModel.class)
+public abstract class TridentEntityModelMixin implements VboModel {
 
     @Unique
     @Nullable

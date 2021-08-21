@@ -25,25 +25,25 @@
 package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
-import net.minecraft.client.render.entity.model.AnimalModel;
+import com.oroarmor.bakedminecraftmodels.model.VboModel;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.entity.LivingEntityRenderer;
+import net.minecraft.client.render.entity.model.EntityModel;
+import net.minecraft.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.model.EntityModel;
-import net.minecraft.entity.LivingEntity;
-
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererMixin<T extends LivingEntity, M extends EntityModel<T>> {
+
     @Shadow public abstract M getModel();
 
     @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
     public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
-        if (getModel() instanceof AnimalModel) { // TODO: add more and use duck interface for calling method on model
+        if (getModel() instanceof VboModel) {
             cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(cir.getReturnValue()));
         }
     }

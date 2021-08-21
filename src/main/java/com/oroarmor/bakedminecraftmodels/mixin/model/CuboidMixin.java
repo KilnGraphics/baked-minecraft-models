@@ -24,19 +24,16 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import net.minecraft.client.model.ModelPart;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.VertexConsumer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
 
 @Mixin(ModelPart.Cuboid.class)
 public class CuboidMixin implements BakeablePart {
