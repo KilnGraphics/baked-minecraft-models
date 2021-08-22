@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import net.minecraft.client.render.RenderLayer;
 
 @Mixin(RenderLayer.class)
-public interface RenderLayerAccessor extends RenderPhaseAccessor{
+public interface RenderLayerAccessor extends RenderPhaseAccessor {
 
     @Accessor
     boolean getHasCrumbling();
