@@ -126,11 +126,6 @@ public abstract class ModelMixins implements VboModel {
     }
 
     @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    private MatrixStack bmm$tryReplaceMatrixStack(MatrixStack existingStack) {
-        return tryReplaceMatrixStack(existingStack);
-    }
-
-    @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private VertexConsumer bmm$tryDisableImmediateRendering(VertexConsumer existingConsumer) {
         return tryDisableImmediateRendering(existingConsumer);
     }

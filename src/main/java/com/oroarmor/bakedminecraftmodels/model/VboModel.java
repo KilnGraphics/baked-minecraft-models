@@ -63,14 +63,6 @@ public interface VboModel {
         setCurrentPassOriginalStack(matrices);
     }
 
-    default MatrixStack tryReplaceMatrixStack(MatrixStack existingStack) {
-//        if (isCurrentPassBakeable()) {
-//            return GlobalModelUtils.BAKING_MATRIX_STACK;
-//        } else {
-            return existingStack;
-//        }
-    }
-
     default VertexConsumer tryDisableImmediateRendering(VertexConsumer existingConsumer) {
         if (getBakedVertices() != null && isCurrentPassBakeable()) {
             return null;
