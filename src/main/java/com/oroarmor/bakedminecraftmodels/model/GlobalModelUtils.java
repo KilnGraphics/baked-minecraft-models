@@ -72,7 +72,7 @@ public class GlobalModelUtils {
     public static List<Matrix4f> currentMatrices = new ObjectArrayList<>(); // TODO: stop using a matrix list and update pbo on the fly
 
     public static final long PART_PBO_SIZE = 8192 * 16 * PART_STRUCT_SIZE; // 8192 entities with 16 parts. this takes about 25mb after triple buffering
-    public static final long MODEL_PBO_SIZE = 4096 * MODEL_STRUCT_SIZE; // 4096 entities of a single type. this takes about 442kb after triple buffering
+    public static final long MODEL_PBO_SIZE = 2048 * 100 * MODEL_STRUCT_SIZE; // 2048 entities per type, 100 types. this takes about 22mb after triple buffering
 
     // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
     public static SectionedPbo PART_PBO;

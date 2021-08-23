@@ -13,10 +13,6 @@ uniform mat4 ProjMat;
 uniform vec3 Light0_Direction;
 uniform vec3 Light1_Direction;
 
-uniform vec4 Color;
-uniform ivec2 UV1;
-uniform ivec2 UV2;
-
 struct ModelPart {
     mat4 modelViewMat;
 };
@@ -25,16 +21,16 @@ layout(std430, binding = 1) buffer ssbo_layout {
     ModelPart[] modelParts;
 } ssbo;
 
-//struct Model {
-//    vec4 Color;
-//    ivec2 UV1;
-//    ivec2 UV2;
-//    int partOffset;
-//};
-//
-//layout(std430, binding = 2) buffer ssbo_layout {
-//    Model[] models;
-//} ssbo;
+struct Model {
+    vec4 Color;
+    ivec2 UV1;
+    ivec2 UV2;
+    int partOffset;
+};
+
+layout(std430, binding = 2) buffer ssbo_layout {
+    Model[] models;
+} ssbo;
 
 out float vertexDistance;
 out vec4 vertexColor;
