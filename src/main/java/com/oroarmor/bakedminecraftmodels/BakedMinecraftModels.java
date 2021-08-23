@@ -33,7 +33,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
-    private static final boolean ENABLE_RENDERDOC = false;
+    private static final boolean ENABLE_RENDERDOC = true;
 
     // RenderDoc Vertex Format:
     /*
@@ -44,9 +44,17 @@ public class BakedMinecraftModels implements ClientModInitializer {
      int id
     */
 
-    // RenderDoc SSBO Format:
+    // RenderDoc Part SSBO Format:
     /*
      mat4 modelViewMat;
+    */
+
+    // RenderDoc Model SSBO Format:
+    /*
+     vec4 Color;
+     ivec2 UV1;
+     ivec2 UV2;
+     int partOffset;
     */
 
     @Override

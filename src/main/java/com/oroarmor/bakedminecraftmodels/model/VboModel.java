@@ -37,12 +37,12 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Matrix4f;
-import org.lwjgl.opengl.ARBBufferStorage;
 import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 
+// TODO: move some stuff out of here, call this GlVboModel
 public interface VboModel {
 
     VertexBuffer getBakedVertices();
@@ -64,11 +64,11 @@ public interface VboModel {
     }
 
     default MatrixStack tryReplaceMatrixStack(MatrixStack existingStack) {
-        if (isCurrentPassBakeable()) {
-            return GlobalModelUtils.BAKING_MATRIX_STACK;
-        } else {
+//        if (isCurrentPassBakeable()) {
+//            return GlobalModelUtils.BAKING_MATRIX_STACK;
+//        } else {
             return existingStack;
-        }
+//        }
     }
 
     default VertexConsumer tryDisableImmediateRendering(VertexConsumer existingConsumer) {
@@ -95,22 +95,10 @@ public interface VboModel {
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV1").set(overlay & 65535, overlay >> 16 & 65535);
             BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL.getUniform("UV2").set(light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295), light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 65295));
 
-            // TODO OPT: Use buffers larger than ssboSize if available to avoid unnecessary creation
-            SectionedPbo pbo = GlobalModelUtils.SIZE_TO_GL_BUFFER_POINTER.computeIfAbsent(GlobalModelUtils.currentMatrices.size() * GlobalModelUtils.STRUCT_SIZE, ssboSize -> {
-                int name = GlStateManager._glGenBuffers();
-                GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
-                int fullSize = ssboSize * GlobalModelUtils.BUFFER_SECTIONS;
-                // TODO: nglNamedBufferStorage or nglNamedBufferStorageEXT
-                ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, GlobalModelUtils.BUFFER_CREATION_FLAGS);
-                return new SectionedPbo(
-                        GL30C.glMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, GlobalModelUtils.BUFFER_MAP_FLAGS),
-                        name,
-                        GlobalModelUtils.BUFFER_SECTIONS,
-                        ssboSize
-                );
-            });
+            boolean pboCreated = GlobalModelUtils.createPartPboIfNeeded();
+            SectionedPbo pbo = GlobalModelUtils.PART_PBO;
 
-            if (pbo.shouldBindBuffer()) {
+            if (!pboCreated) {
                 GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, pbo.getName());
             }
 
@@ -123,11 +111,11 @@ public interface VboModel {
                 }
             }
 
-            int sectionStartPos = pbo.getCurrentSection() * pbo.getSectionSize();
+            long sectionStartPos = pbo.getCurrentSection() * pbo.getSectionSize();
 
             for (int i = 0; i < GlobalModelUtils.currentMatrices.size(); i++) {
                 Matrix4f modelEntry = GlobalModelUtils.currentMatrices.get(i);
-                pbo.getPointer().position(i * GlobalModelUtils.STRUCT_SIZE + sectionStartPos);
+                pbo.getPointer().position((int) (i * GlobalModelUtils.PART_STRUCT_SIZE + sectionStartPos));
                 if (modelEntry != null) {
                     pbo.getPointer().putFloat(modelEntry.a00).putFloat(modelEntry.a10).putFloat(modelEntry.a20).putFloat(modelEntry.a30)
                             .putFloat(modelEntry.a01).putFloat(modelEntry.a11).putFloat(modelEntry.a21).putFloat(modelEntry.a31)
@@ -140,7 +128,6 @@ public interface VboModel {
 
             GlobalModelUtils.currentMatrices.clear();
 
-            // TODO: glFlushMappedNamedBufferRange
             GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, sectionStartPos, pbo.getSectionSize());
 
             if (currentSyncObject != MemoryUtil.NULL) {

@@ -69,13 +69,6 @@ public abstract class ModelPartMixin implements BakeablePart {
         return bmm$id;
     }
 
-    @Inject(method = "rotate", at = @At("HEAD"))
-    public void pushMatrixStack(MatrixStack matrices, CallbackInfo ci) {
-        if (bmm$usingSmartRenderer) {
-            matrices.push();
-        }
-    }
-
     @Inject(method = "rotate", at = @At("TAIL"))
     public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
@@ -85,7 +78,6 @@ public abstract class ModelPartMixin implements BakeablePart {
             if (this.visible) {
                 GlobalModelUtils.currentMatrices.set(bmm$id, matrices.peek().getModel());
             }
-            matrices.pop();
         }
     }
 

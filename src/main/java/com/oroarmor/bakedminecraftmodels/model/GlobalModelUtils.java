@@ -24,6 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.model;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
@@ -32,8 +33,6 @@ import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsum
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
@@ -41,6 +40,7 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.opengl.ARBBufferStorage;
+import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
 import org.lwjgl.system.MemoryUtil;
 
@@ -50,8 +50,10 @@ import java.util.List;
 
 public class GlobalModelUtils {
 
-    public static final int STRUCT_SIZE = 16 * Float.BYTES;
+    public static final int MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + Integer.BYTES;
+    public static final int PART_STRUCT_SIZE = 16 * Float.BYTES;
 
+    public static final MatrixStack.Entry IDENTITY_STACK_ENTRY;
     public static final Matrix4f IDENTITY_MATRIX;
     public static final ByteBuffer IDENTITY_MATRIX_BUFFER;
 
@@ -61,6 +63,8 @@ public class GlobalModelUtils {
         FloatBuffer matrixBuffer = MemoryUtil.memAllocFloat(16);
         IDENTITY_MATRIX.writeColumnMajor(matrixBuffer);
         IDENTITY_MATRIX_BUFFER = MemoryUtil.memByteBuffer(MemoryUtil.memAddress(matrixBuffer), matrixBuffer.capacity());
+
+        IDENTITY_STACK_ENTRY = new MatrixStack().peek();
     }
 
     public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
@@ -69,12 +73,45 @@ public class GlobalModelUtils {
 
     public static final int BUFFER_SECTIONS = 3;
 
-    public static final Int2ObjectMap<SectionedPbo> SIZE_TO_GL_BUFFER_POINTER = new Int2ObjectOpenHashMap<>();
+    public static List<Matrix4f> currentMatrices = new ObjectArrayList<>(); // TODO: stop using a matrix list and update pbo on the fly
 
-    public static final MatrixStack BAKING_MATRIX_STACK = new MatrixStack();
+    public static final long PART_PBO_SIZE = 8192 * 16 * PART_STRUCT_SIZE; // 8192 entities with 16 parts. this takes about 25mb after triple buffering
+    public static final long MODEL_PBO_SIZE = 4096 * MODEL_STRUCT_SIZE; // 4096 entities of a single type. this takes about 442kb after triple buffering
 
-    public static List<Matrix4f> currentMatrices = new ObjectArrayList<>();
-    public static SectionedPbo currentPbo; // TODO: stop using a matrix list and update on the fly
+    // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
+    public static SectionedPbo PART_PBO;
+    public static SectionedPbo MODEL_PBO;
+
+    public static boolean createPartPboIfNeeded() {
+        if (PART_PBO == null) {
+            PART_PBO = createSsboPbo(PART_PBO_SIZE);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public static boolean createModelPboIfNeeded() {
+        if (MODEL_PBO == null) {
+            MODEL_PBO = createSsboPbo(MODEL_PBO_SIZE);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private static SectionedPbo createSsboPbo(long ssboSize) {
+        int name = GlStateManager._glGenBuffers();
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
+        long fullSize = ssboSize * GlobalModelUtils.BUFFER_SECTIONS;
+        ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, GlobalModelUtils.BUFFER_CREATION_FLAGS);
+        return new SectionedPbo(
+                GL30C.glMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, GlobalModelUtils.BUFFER_MAP_FLAGS),
+                name,
+                GlobalModelUtils.BUFFER_SECTIONS,
+                ssboSize
+        );
+    }
 
     public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) {
         return consumer instanceof SpriteTexturedVertexConsumer ?

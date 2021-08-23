@@ -30,13 +30,12 @@ public class SectionedPbo {
     private final ByteBuffer pointer;
     private final int name;
     private final int sectionCount;
-    private final int sectionSize;
+    private final long sectionSize;
     private final long[] syncObjects;
 
     private int currentSection = 0;
-    private boolean shouldBindBuffer = false;
 
-    public SectionedPbo(ByteBuffer pointer, int name, int sectionCount, int sectionSize) {
+    public SectionedPbo(ByteBuffer pointer, int name, int sectionCount, long sectionSize) {
         this.pointer = pointer;
         this.name = name;
         this.sectionCount = sectionCount;
@@ -56,7 +55,7 @@ public class SectionedPbo {
         return sectionCount;
     }
 
-    public int getSectionSize() {
+    public long getSectionSize() {
         return sectionSize;
     }
 
@@ -75,12 +74,6 @@ public class SectionedPbo {
     public void nextSection() {
         currentSection++;
         currentSection %= sectionCount;
-    }
-
-    public boolean shouldBindBuffer() {
-        boolean previousValue = shouldBindBuffer;
-        shouldBindBuffer = true;
-        return previousValue;
     }
 
 }
