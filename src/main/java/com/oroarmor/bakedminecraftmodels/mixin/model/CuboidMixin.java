@@ -52,11 +52,6 @@ public class CuboidMixin implements BakeablePart {
         return bmm$id;
     }
 
-    @ModifyVariable(method = "renderCuboid", at = @At("HEAD"))
-    private MatrixStack.Entry setMatrices(MatrixStack.Entry oldEntry) {
-        return GlobalModelUtils.IDENTITY_STACK_ENTRY;
-    }
-
     @Redirect(method = "renderCuboid", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/VertexConsumer;vertex(FFFFFFFFFIIFFF)V"))
     private void setVertexID(VertexConsumer vertexConsumer, float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
         BufferBuilder nestedBufferBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);

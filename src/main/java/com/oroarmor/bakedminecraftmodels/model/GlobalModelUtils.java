@@ -54,17 +54,13 @@ public class GlobalModelUtils {
     public static final int PART_STRUCT_SIZE = 16 * Float.BYTES;
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY;
-    public static final Matrix4f IDENTITY_MATRIX;
     public static final ByteBuffer IDENTITY_MATRIX_BUFFER;
 
     static {
-        IDENTITY_MATRIX = new Matrix4f();
-        IDENTITY_MATRIX.loadIdentity();
-        FloatBuffer matrixBuffer = MemoryUtil.memAllocFloat(16);
-        IDENTITY_MATRIX.writeColumnMajor(matrixBuffer);
-        IDENTITY_MATRIX_BUFFER = MemoryUtil.memByteBuffer(MemoryUtil.memAddress(matrixBuffer), matrixBuffer.capacity());
-
         IDENTITY_STACK_ENTRY = new MatrixStack().peek();
+        FloatBuffer matrixBuffer = MemoryUtil.memAllocFloat(16);
+        IDENTITY_STACK_ENTRY.getModel().writeColumnMajor(matrixBuffer);
+        IDENTITY_MATRIX_BUFFER = MemoryUtil.memByteBuffer(MemoryUtil.memAddress(matrixBuffer), matrixBuffer.capacity());
     }
 
     public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;

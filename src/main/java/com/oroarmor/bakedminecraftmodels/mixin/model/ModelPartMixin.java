@@ -35,6 +35,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -57,6 +58,8 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Shadow
     public boolean visible;
+
+    @Shadow protected abstract void renderCuboids(MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha);
 
     @Override
     public void setId(int id) {
@@ -87,10 +90,14 @@ public abstract class ModelPartMixin implements BakeablePart {
         bmm$usingSmartRenderer = bmm$rotateOnly || GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertexConsumer));
     }
 
-    @Inject(method = "renderCuboids", at = @At("HEAD"), cancellable = true)
-    public void forceRotateOnly(MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (bmm$rotateOnly) {
-            ci.cancel();
+    @Redirect(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelPart;renderCuboids(Lnet/minecraft/client/util/math/MatrixStack$Entry;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V"))
+    public void forceRotateOrChangeMatrixStack(ModelPart modelPart, MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
+        if (bmm$usingSmartRenderer) {
+            if (!bmm$rotateOnly) {
+                this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
+            }
+        } else {
+            this.renderCuboids(entry, vertexConsumer, light, overlay, red, green, blue, alpha);
         }
     }
 
