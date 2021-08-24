@@ -44,8 +44,8 @@ public class ModelInstanceData {
 
     public void setOverlay(int overlay) {
         if (!overlaySet) {
-            this.overlayX = (short) (overlay & 0xFFFF);
-            this.overlayY = (short) (overlay >> 16 & 0xFFFF);
+            this.overlayX = overlay & 0xFFFF;
+            this.overlayY = overlay >> 16 & 0xFFFF;
             overlaySet = true;
         }
     }
