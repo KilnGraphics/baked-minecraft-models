@@ -40,14 +40,19 @@ out vec2 texCoord0;
 out vec4 normal;
 
 void main() {
-    ModelPart modelPart = ssbo.modelParts[PartId];
+    #ifdef VULKAN
+        Model model = models[gl_InstanceIndex];
+    #else
+        Model model = models[gl_InstanceID];
+    #endif
+    ModelPart modelPart = ssbo.modelParts[model.partOffset + PartId];
 
     gl_Position = ProjMat * modelPart.modelViewMat * vec4(Position, 1.0);
 
     vertexDistance = length((modelPart.modelViewMat * vec4(Position, 1.0)).xyz);
     normal = vec4(mat3(modelPart.modelViewMat) * Normal, 0);
-    vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, normal.xyz, Color);
-    lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
-    overlayColor = texelFetch(Sampler1, UV1, 0);
+    vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, normal.xyz, model.Color);
+    lightMapColor = texelFetch(Sampler2, model.UV2 / 16, 0);
+    overlayColor = texelFetch(Sampler1, model.UV1, 0);
     texCoord0 = UV0;
 }

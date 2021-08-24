@@ -59,6 +59,10 @@ public class SectionedPbo {
         return sectionSize;
     }
 
+    public int getCurrentSection() {
+        return currentSection;
+    }
+
     public long getCurrentSyncObject() {
         return syncObjects[currentSection];
     }
@@ -67,13 +71,10 @@ public class SectionedPbo {
         syncObjects[currentSection] = pSyncObject;
     }
 
-    public int getCurrentSection() {
-        return currentSection;
-    }
-
     public void nextSection() {
         currentSection++;
         currentSection %= sectionCount;
+        pointer.position((int) (getCurrentSection() * getSectionSize()));
     }
 
 }
