@@ -52,8 +52,8 @@ public class ModelInstanceData {
 
     public void setLight(int light) {
         if (!lightSet) {
-            this.overlayX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
-            this.overlayY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
+            this.lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
+            this.lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
             lightSet = true;
         }
     }
