@@ -24,7 +24,10 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.oroarmor.bakedminecraftmodels.model.VboModel;
+import com.oroarmor.bakedminecraftmodels.data.ModelInstanceData;
+import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
@@ -57,87 +60,62 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
         TridentEntityModel.class, // FIXME: enchantment glint uses dual
         TurtleEntityModel.class // FIXME: this is broken
 })
-public abstract class ModelMixins implements VboModel {
+public abstract class ModelMixins implements VboBackedModel {
 
     @Unique
     @Nullable
     private VertexBuffer bmm$bakedVertices;
 
-    @Unique
     @Override
+    @Unique
     public VertexBuffer getBakedVertices() {
         return bmm$bakedVertices;
     }
 
-    @Unique
     @Override
-    public void setBakedVertices(VertexBuffer vertexBuffer) {
-        bmm$bakedVertices = vertexBuffer;
+    @Unique
+    public void setBakedVertices(VertexBuffer bmm$bakedVertices) {
+        this.bmm$bakedVertices = bmm$bakedVertices;
     }
 
     @Unique
     private boolean bmm$currentPassBakeable;
 
     @Unique
-    @Override
-    public boolean isCurrentPassBakeable() {
-        return bmm$currentPassBakeable;
-    }
-
-    @Unique
-    @Override
-    public void setCurrentPassBakeable(boolean bakeable) {
-        bmm$currentPassBakeable = bakeable;
-    }
-
-    @Unique
     private BufferBuilder bmm$currentPassNestedBuilder;
 
-    @Unique
-    @Override
-    public BufferBuilder getCurrentPassNestedBuilder() {
-        return bmm$currentPassNestedBuilder;
-    }
-
-    @Unique
-    @Override
-    public void setCurrentPassNestedBuilder(BufferBuilder nestedBuilder) {
-        bmm$currentPassNestedBuilder = nestedBuilder;
-    }
-
-    @Unique
-    private MatrixStack bmm$currentPassOriginalStack;
-
-    @Unique
-    @Override
-    public MatrixStack getCurrentPassOriginalStack() {
-        return bmm$currentPassOriginalStack;
-    }
-
-    @Unique
-    @Override
-    public void setCurrentPassOriginalStack(MatrixStack originalStack) {
-        bmm$currentPassOriginalStack = originalStack;
-    }
-
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    private void bmm$updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        updateCurrentPass(matrices, vertexConsumer);
+    private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        bmm$currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
+        bmm$currentPassBakeable = GlobalModelUtils.isSmartBufferBuilder(bmm$currentPassNestedBuilder) && MinecraftClient.getInstance().getWindow() != null;
     }
 
     @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    private VertexConsumer bmm$tryDisableImmediateRendering(VertexConsumer existingConsumer) {
-        return tryDisableImmediateRendering(existingConsumer);
+    private VertexConsumer disableImmediateRendering(VertexConsumer existingConsumer) {
+        if (getBakedVertices() != null && bmm$currentPassBakeable) {
+            return null;
+        } else {
+            return existingConsumer;
+        }
     }
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
-    private void bmm$tryCreateVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        tryCreateVbo();
+    private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (getBakedVertices() == null && bmm$currentPassBakeable) {
+            bmm$currentPassNestedBuilder.end();
+            setBakedVertices(new VertexBuffer());
+            getBakedVertices().upload(bmm$currentPassNestedBuilder);
+        }
     }
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
-    private void bmm$tryRenderVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        tryRenderVbo(light, overlay, red, green, blue, alpha);
+    private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
+        if (getBakedVertices() != null && bmm$currentPassBakeable) {
+            ModelInstanceData modelInstanceData = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData();
+            modelInstanceData.setLight(light);
+            modelInstanceData.setOverlay(overlay);
+            modelInstanceData.setColor(red, green, blue, alpha);
+        }
     }
 
 }

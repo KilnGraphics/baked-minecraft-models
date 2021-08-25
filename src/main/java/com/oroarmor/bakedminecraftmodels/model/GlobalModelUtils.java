@@ -28,6 +28,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
+import com.oroarmor.bakedminecraftmodels.data.BakingData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
@@ -69,10 +70,10 @@ public class GlobalModelUtils {
 
     public static final int BUFFER_SECTIONS = 3;
 
-    public static List<Matrix4f> currentMatrices = new ObjectArrayList<>(); // TODO: stop using a matrix list and update pbo on the fly
-
     public static final long PART_PBO_SIZE = 8192 * 16 * PART_STRUCT_SIZE; // 8192 entities with 16 parts. this takes about 25mb after triple buffering
     public static final long MODEL_PBO_SIZE = 2048 * 100 * MODEL_STRUCT_SIZE; // 2048 entities per type, 100 types. this takes about 22mb after triple buffering
+
+    public static final BakingData bakingData = new BakingData();
 
     // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
     public static SectionedPbo PART_PBO;

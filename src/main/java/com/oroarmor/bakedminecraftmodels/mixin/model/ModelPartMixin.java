@@ -26,9 +26,11 @@ package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix4f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -75,11 +77,12 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Inject(method = "rotate", at = @At("TAIL"))
     public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
-            while (GlobalModelUtils.currentMatrices.size() <= bmm$id) {
-                GlobalModelUtils.currentMatrices.add(null);
+            List<Matrix4f> matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrices();
+            while (matrixList.size() <= bmm$id) {
+                matrixList.add(null);
             }
             if (this.visible) {
-                GlobalModelUtils.currentMatrices.set(bmm$id, matrices.peek().getModel());
+                matrixList.set(bmm$id, matrices.peek().getModel());
             }
         }
     }
@@ -87,7 +90,7 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         bmm$rotateOnly = vertexConsumer == null;
-        bmm$usingSmartRenderer = bmm$rotateOnly || GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertexConsumer));
+        bmm$usingSmartRenderer = (bmm$rotateOnly || GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertexConsumer))) && MinecraftClient.getInstance().getWindow() != null;
     }
 
     @Redirect(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelPart;renderCuboids(Lnet/minecraft/client/util/math/MatrixStack$Entry;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V"))

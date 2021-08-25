@@ -28,6 +28,10 @@ public class ModelInstanceData {
         this.modelViewMatrixList = new ObjectArrayList<>();
     }
 
+    public List<Matrix4f> getMatrices() {
+        return modelViewMatrixList;
+    }
+
     /**
      * After this is set once, until it's reset, this will ignore any subsequent
      * calls to this method.
@@ -42,6 +46,10 @@ public class ModelInstanceData {
         }
     }
 
+    /**
+     * After this is set once, until it's reset, this will ignore any subsequent
+     * calls to this method.
+     */
     public void setOverlay(int overlay) {
         if (!overlaySet) {
             this.overlayX = overlay & 0xFFFF;
@@ -50,6 +58,10 @@ public class ModelInstanceData {
         }
     }
 
+    /**
+     * After this is set once, until it's reset, this will ignore any subsequent
+     * calls to this method.
+     */
     public void setLight(int light) {
         if (!lightSet) {
             this.lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
@@ -76,7 +88,7 @@ public class ModelInstanceData {
         modelPboPointer.putInt(overlayY);
         modelPboPointer.putInt(lightX);
         modelPboPointer.putInt(lightY);
-        modelPboPointer.putInt(partPboPointer.position() / GlobalModelUtils.PART_STRUCT_SIZE);
+        modelPboPointer.putInt((partPboPointer.position() - (int) (partPbo.getCurrentSection() * partPbo.getSectionSize())) / GlobalModelUtils.PART_STRUCT_SIZE);
 
         for (Matrix4f modelViewMatrix : modelViewMatrixList) {
             if (modelViewMatrix != null) {
