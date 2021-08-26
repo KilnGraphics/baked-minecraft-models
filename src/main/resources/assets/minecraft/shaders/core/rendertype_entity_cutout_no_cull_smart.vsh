@@ -19,7 +19,7 @@ struct ModelPart {
 
 layout(std430, binding = 1) buffer modelPartsLayout {
     ModelPart[] modelParts;
-} ssbo;
+} modelPartsSsbo;
 
 struct Model {
     vec4 Color;
@@ -30,7 +30,7 @@ struct Model {
 
 layout(std430, binding = 2) buffer modelsLayout {
     Model[] models;
-} ssbo;
+} modelsSsbo;
 
 out float vertexDistance;
 out vec4 vertexColor;
@@ -41,11 +41,11 @@ out vec4 normal;
 
 void main() {
     #ifdef VULKAN
-        Model model = models[gl_InstanceIndex];
+        Model model = modelsSsbo.models[gl_InstanceIndex];
     #else
-        Model model = models[gl_InstanceID];
+        Model model = modelsSsbo.models[gl_InstanceID];
     #endif
-    ModelPart modelPart = ssbo.modelParts[model.partOffset + PartId];
+    ModelPart modelPart = modelPartsSsbo.modelParts[model.partOffset + PartId];
 
     gl_Position = ProjMat * modelPart.modelViewMat * vec4(Position, 1.0);
 
