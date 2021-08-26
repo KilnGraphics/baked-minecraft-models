@@ -49,7 +49,7 @@ public class ModelInstanceData {
     private int lightY;
 
     public ModelInstanceData() {
-        this.modelViewMatrixList = new ObjectArrayList<>();
+        this.modelViewMatrixList = new ObjectArrayList<>(10);
     }
 
     public List<Matrix4f> getMatrices() {
