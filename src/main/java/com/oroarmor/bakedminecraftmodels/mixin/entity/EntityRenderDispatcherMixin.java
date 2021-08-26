@@ -59,6 +59,10 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
     }
 
     public void renderQueues() {
+        if (bakingData.getCurrentModelTypeData() == null) return;
+        int instanceCount = bakingData.getCurrentModelTypeData().getInstanceCount();
+        if (instanceCount <= 0) return;
+
         SectionedPbo partPbo = getOrCreatePartPbo();
         SectionedPbo modelPbo = getOrCreateModelPbo();
 
@@ -81,8 +85,7 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
 
         GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
         GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelPbo.getSectionSize());
-
-        int instanceCount = bakingData.getCurrentModelTypeData().getInstanceCount();
+        
         RenderLayer layer = bakingData.getCurrentModelTypeData().getRenderLayer();
         if (layer == null) {
             throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
