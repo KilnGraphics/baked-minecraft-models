@@ -24,15 +24,17 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
+import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumers;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 
-@Mixin(BufferBuilder.class)
-public class BufferBuilderMixin implements RenderLayerCreatedBufferBuilder {
+@Mixin({BufferBuilder.class}) // TODO: add more
+public class VertexConsumerMixins implements RenderLayerCreatedVertexConsumer {
     @Unique
     private RenderLayer bmm$renderLayer;
 

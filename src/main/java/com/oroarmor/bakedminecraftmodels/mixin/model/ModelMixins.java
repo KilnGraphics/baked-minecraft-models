@@ -24,13 +24,13 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
+import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
 import com.oroarmor.bakedminecraftmodels.data.ModelInstanceData;
 import com.oroarmor.bakedminecraftmodels.data.ModelType;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
-import net.minecraft.client.model.Model;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
@@ -88,11 +88,13 @@ public abstract class ModelMixins implements VboBackedModel {
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
-        GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
-
         bmm$currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
         bmm$currentPassBakeable = GlobalModelUtils.isSmartBufferBuilder(bmm$currentPassNestedBuilder) && MinecraftClient.getInstance().getWindow() != null;
+        if (bmm$currentPassBakeable) {
+            GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
+            GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer());
+            GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
+        }
     }
 
     @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))

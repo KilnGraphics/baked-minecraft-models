@@ -8,10 +8,11 @@
   "client": [
     "GameRendererMixin",
     "GlUniformMixin",
+    "WorldRendererMixin",
     "buffer.BufferBuilderAccessor",
-    "buffer.BufferBuilderMixin",
     "buffer.SpriteTexturedVertexConsumerAccessor",
     "buffer.VertexBufferAccessor",
+    "buffer.VertexConsumerMixins",
     "buffer.VertexConsumerProviderImmediateMixin",
     "entity.EntityRenderDispatcherMixin",
     "model.CuboidMixin",

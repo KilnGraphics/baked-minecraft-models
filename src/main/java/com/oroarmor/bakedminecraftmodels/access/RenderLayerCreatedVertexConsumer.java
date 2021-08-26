@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.render.RenderLayer;
 
-public interface RenderLayerCreatedBufferBuilder {
+public interface RenderLayerCreatedVertexConsumer {
     void setRenderLayer(RenderLayer layer);
     @Nullable RenderLayer getRenderLayer();
 }

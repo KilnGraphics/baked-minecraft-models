@@ -27,7 +27,7 @@ package com.oroarmor.bakedminecraftmodels.model;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
+import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
 import com.oroarmor.bakedminecraftmodels.data.BakingData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
@@ -35,12 +35,10 @@ import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersA
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.opengl.ARBBufferStorage;
 import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
@@ -48,7 +46,6 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.List;
 
 public class GlobalModelUtils {
 
@@ -108,7 +105,7 @@ public class GlobalModelUtils {
         );
     }
 
-    public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) {
+    public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
         return consumer instanceof SpriteTexturedVertexConsumer ?
                 (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) consumer).getParent() :
                 (BufferBuilder) consumer;
@@ -119,7 +116,7 @@ public class GlobalModelUtils {
         return ((BufferBuilderAccessor) nestedBuilder)
                 .getFormat()
                 .equals(BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT)
-                && ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) ((RenderLayerCreatedBufferBuilder) nestedBuilder)
+                && ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) ((RenderLayerCreatedVertexConsumer) nestedBuilder)
                 .getRenderLayer())
                 .getPhases())
                 .getShader()

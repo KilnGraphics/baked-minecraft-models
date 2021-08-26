@@ -45,9 +45,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, M extend
     @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
     public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
         if (getModel() instanceof VboBackedModel) {
-            RenderLayer derivedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(cir.getReturnValue());
-            GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(derivedRenderLayer);
-            cir.setReturnValue(derivedRenderLayer);
+            cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(cir.getReturnValue()));
         }
     }
 }
