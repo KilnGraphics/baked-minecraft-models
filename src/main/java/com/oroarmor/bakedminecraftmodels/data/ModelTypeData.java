@@ -100,10 +100,10 @@ public class ModelTypeData {
     }
 
     public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
-        if (renderLayer == null) throw new IllegalStateException("Render layer not set");
-
-        for (ModelInstanceData modelInstanceData : modelInstanceList) {
-            modelInstanceData.writeToPbos(modelPbo, partPbo);
+        if (renderLayer != null) {
+            for (ModelInstanceData modelInstanceData : modelInstanceList) {
+                modelInstanceData.writeToPbos(modelPbo, partPbo);
+            }
         }
     }
 
