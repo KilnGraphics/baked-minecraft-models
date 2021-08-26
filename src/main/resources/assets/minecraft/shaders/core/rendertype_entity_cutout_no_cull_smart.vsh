@@ -17,7 +17,7 @@ struct ModelPart {
     mat4 modelViewMat;
 };
 
-layout(std430, binding = 1) buffer ssbo_layout {
+layout(std430, binding = 1) buffer modelPartsLayout {
     ModelPart[] modelParts;
 } ssbo;
 
@@ -28,7 +28,7 @@ struct Model {
     int partOffset;
 };
 
-layout(std430, binding = 2) buffer ssbo_layout {
+layout(std430, binding = 2) buffer modelsLayout {
     Model[] models;
 } ssbo;
 
