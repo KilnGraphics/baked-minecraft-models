@@ -34,6 +34,7 @@ import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsum
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
@@ -76,25 +77,22 @@ public class GlobalModelUtils {
     public static final BakingData bakingData = new BakingData();
 
     // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
-    public static SectionedPbo PART_PBO;
-    public static SectionedPbo MODEL_PBO;
+    private static SectionedPbo PART_PBO;
+    private static SectionedPbo MODEL_PBO;
+    public static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(GlobalModelUtils.BUFFER_SECTIONS);
 
-    public static boolean createPartPboIfNeeded() {
+    public static SectionedPbo getOrCreatePartPbo() {
         if (PART_PBO == null) {
             PART_PBO = createSsboPbo(PART_PBO_SIZE);
-            return true;
-        } else {
-            return false;
         }
+        return PART_PBO;
     }
 
-    public static boolean createModelPboIfNeeded() {
+    public static SectionedPbo getOrCreateModelPbo() {
         if (MODEL_PBO == null) {
             MODEL_PBO = createSsboPbo(MODEL_PBO_SIZE);
-            return true;
-        } else {
-            return false;
         }
+        return MODEL_PBO;
     }
 
     private static SectionedPbo createSsboPbo(long ssboSize) {

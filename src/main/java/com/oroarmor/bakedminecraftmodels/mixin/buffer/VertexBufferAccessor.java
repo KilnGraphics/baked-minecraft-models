@@ -22,35 +22,28 @@
  * SOFTWARE.
  */
 
-package com.oroarmor.bakedminecraftmodels.ssbo;
+package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
-public class SectionedSyncObjects {
-    private final long[] syncObjects;
+import net.minecraft.client.gl.VertexBuffer;
+import net.minecraft.client.render.VertexFormat;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
-    private int currentSection = 0;
+@Mixin(VertexBuffer.class)
+public interface VertexBufferAccessor {
+    @Accessor
+    int getVertexCount();
 
-    public SectionedSyncObjects(int sectionCount) {
-        this.syncObjects = new long[sectionCount]; // these are 0 (null) by default
-    }
+    @Accessor
+    VertexFormat.DrawMode getDrawMode();
 
-    public int getSectionCount() {
-        return syncObjects.length;
-    }
+    @Accessor
+    VertexFormat.IntType getVertexFormat();
 
-    public int getCurrentSection() {
-        return currentSection;
-    }
+    @Invoker
+    void invokeBindVertexArray();
 
-    public long getCurrentSyncObject() {
-        return syncObjects[currentSection];
-    }
-
-    public void setCurrentSyncObject(long pSyncObject) {
-        syncObjects[currentSection] = pSyncObject;
-    }
-
-    public void nextSection() {
-        currentSection++;
-        currentSection %= syncObjects.length;
-    }
+    @Invoker
+    void invokeBind();
 }

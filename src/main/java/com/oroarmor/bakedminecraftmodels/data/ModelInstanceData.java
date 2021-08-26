@@ -102,6 +102,10 @@ public class ModelInstanceData {
     }
 
     public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
+        if (!colorSet) throw new IllegalStateException("Color variable not set");
+        if (!overlaySet) throw new IllegalStateException("Overlay uvs variable not set");
+        if (!lightSet) throw new IllegalStateException("Light uvs variable not set");
+
         ByteBuffer modelPboPointer = modelPbo.getPointer();
         ByteBuffer partPboPointer = partPbo.getPointer();
         modelPboPointer.putFloat(red);

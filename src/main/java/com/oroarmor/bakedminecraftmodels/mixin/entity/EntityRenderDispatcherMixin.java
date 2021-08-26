@@ -27,8 +27,7 @@ package com.oroarmor.bakedminecraftmodels.mixin.entity;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedBufferBuilder;
-import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import com.oroarmor.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import com.oroarmor.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import net.minecraft.client.MinecraftClient;
@@ -38,9 +37,9 @@ import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
+import org.lwjgl.opengl.GL31C;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
@@ -60,10 +59,10 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
     }
 
     public void renderQueues() {
-        GlobalModelUtils.createPartPboIfNeeded();
-        GlobalModelUtils.createModelPboIfNeeded();
+        SectionedPbo partPbo = getOrCreatePartPbo();
+        SectionedPbo modelPbo = getOrCreateModelPbo();
 
-        long currentPartSyncObject = PART_PBO.getCurrentSyncObject();
+        long currentPartSyncObject = SYNC_OBJECTS.getCurrentSyncObject();
 
         if (currentPartSyncObject != MemoryUtil.NULL) {
             int waitReturn = GL32C.GL_UNSIGNALED;
@@ -72,34 +71,46 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
             }
         }
 
-        long sectionStartPos = PART_PBO.getCurrentSection() * PART_PBO.getSectionSize();
+        long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
+        long modelSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
 
-        bakingData.writeToPbos(MODEL_PBO, PART_PBO);
+        bakingData.writeToPbos(modelPbo, partPbo);
 
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
+        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partPbo.getSectionSize());
 
-        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, PART_PBO.getName());
-        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, PART_PBO.getCurrentSection() * PART_PBO.getSectionSize(), PART_PBO.getSectionSize());
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
+        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelPbo.getSectionSize());
 
-        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, MODEL_PBO.getName());
-        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, MODEL_PBO.getCurrentSection() * MODEL_PBO.getSectionSize(), MODEL_PBO.getSectionSize());
+        int instanceCount = bakingData.getCurrentModelTypeData().getInstanceCount();
+        RenderLayer layer = bakingData.getCurrentModelTypeData().getRenderLayer();
+        if (layer == null) {
+            throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
+        }
+        VertexBuffer vertexBuffer = bakingData.getCurrentModelTypeData().getModel().getBakedVertices();
+        VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
+        int vertexCount = vertexBufferAccessor.getVertexCount();
+        VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+        Shader shader = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL;
+        if (shader == null) {
+            throw new IllegalStateException("Smart entity shader is null");
+        }
 
-        GlobalModelUtils.bakingData.reset();
+        bakingData.reset();
 
         if (currentPartSyncObject != MemoryUtil.NULL) {
             GL32C.glDeleteSync(currentPartSyncObject);
         }
-        pbo.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+        SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, pbo.getName(), sectionStartPos, pbo.getSectionSize());
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
 
-        pbo.nextSection();
+        partPbo.nextSection();
+        modelPbo.nextSection();
+        SYNC_OBJECTS.nextSection();
 
-        RenderLayer layer = ((RenderLayerCreatedBufferBuilder) getCurrentPassNestedBuilder()).getRenderLayer();
-        if (layer == null) {
-            throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
-        }
-
-        if (this.vertexCount != 0) {
+        if (vertexCount != 0) {
             layer.startDrawing();
             RenderSystem.assertThread(RenderSystem::isOnRenderThread);
             BufferRenderer.unbindAll();
@@ -109,12 +120,8 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
                 shader.addSampler("Sampler" + i, j);
             }
 
-            if (shader.modelViewMat != null) {
-                shader.modelViewMat.set(viewMatrix);
-            }
-
             if (shader.projectionMat != null) {
-                shader.projectionMat.set(projectionMatrix);
+                shader.projectionMat.set(RenderSystem.getProjectionMatrix());
             }
 
             if (shader.colorModulator != null) {
@@ -146,22 +153,21 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
                 shader.screenSize.set((float)window.getFramebufferWidth(), (float)window.getFramebufferHeight());
             }
 
-            if (shader.lineWidth != null && (this.drawMode == VertexFormat.DrawMode.LINES || this.drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
+            if (shader.lineWidth != null && (drawMode == VertexFormat.DrawMode.LINES || drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
                 shader.lineWidth.set(RenderSystem.getShaderLineWidth());
             }
 
             RenderSystem.setupShaderLights(shader);
-            this.bindVertexArray();
-            this.bind();
-            this.getElementFormat().startDrawing();
+            vertexBufferAccessor.invokeBindVertexArray();
+            vertexBufferAccessor.invokeBind();
+            vertexBuffer.getElementFormat().startDrawing();
             shader.bind();
-            RenderSystem.drawElements(this.drawMode.mode, this.vertexCount, this.vertexFormat.count);
+            GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
             shader.unbind();
-            this.getElementFormat().endDrawing();
-            unbind();
+            vertexBuffer.getElementFormat().endDrawing();
+            VertexBuffer.unbind();
             VertexBuffer.unbindVertexArray();
             layer.endDrawing();
         }
-        getBakedVertices().setShader(getCurrentPassOriginalStack().peek().getModel(), RenderSystem.getProjectionMatrix(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
     }
 }

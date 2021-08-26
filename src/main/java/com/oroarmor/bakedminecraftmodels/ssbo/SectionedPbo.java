@@ -31,7 +31,6 @@ public class SectionedPbo {
     private final int name;
     private final int sectionCount;
     private final long sectionSize;
-    private final long[] syncObjects;
 
     private int currentSection = 0;
 
@@ -40,7 +39,6 @@ public class SectionedPbo {
         this.name = name;
         this.sectionCount = sectionCount;
         this.sectionSize = sectionSize;
-        this.syncObjects = new long[sectionCount]; // these are 0 (null) by default
     }
 
     public ByteBuffer getPointer() {
@@ -61,14 +59,6 @@ public class SectionedPbo {
 
     public int getCurrentSection() {
         return currentSection;
-    }
-
-    public long getCurrentSyncObject() {
-        return syncObjects[currentSection];
-    }
-
-    public void setCurrentSyncObject(long pSyncObject) {
-        syncObjects[currentSection] = pSyncObject;
     }
 
     public void nextSection() {

@@ -25,6 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.mixin.renderlayer;
 
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
+import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
@@ -44,7 +45,9 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, M extend
     @Inject(method = "getRenderLayer", at = @At("RETURN"), cancellable = true)
     public void useSmarterRenderLayer(T entity, boolean showBody, boolean translucent, boolean showOutline, CallbackInfoReturnable<RenderLayer> cir) {
         if (getModel() instanceof VboBackedModel) {
-            cir.setReturnValue(BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(cir.getReturnValue()));
+            RenderLayer derivedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(cir.getReturnValue());
+            GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(derivedRenderLayer);
+            cir.setReturnValue(derivedRenderLayer);
         }
     }
 }

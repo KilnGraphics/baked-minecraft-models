@@ -24,9 +24,12 @@
 
 package com.oroarmor.bakedminecraftmodels.data;
 
+import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.gl.VertexBuffer;
+import net.minecraft.client.render.RenderLayer;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -35,9 +38,13 @@ public class ModelTypeData {
 
     private final PriorityQueue<ModelInstanceData> modelInstancePool;
     private final List<ModelInstanceData> modelInstanceList;
+    private final VboBackedModel model;
     private ModelInstanceData currentModelInstanceData;
 
-    public ModelTypeData(PriorityQueue<ModelInstanceData> modelInstancePool) {
+    private RenderLayer renderLayer;
+
+    public ModelTypeData(PriorityQueue<ModelInstanceData> modelInstancePool, VboBackedModel model) {
+        this.model = model;
         this.modelInstancePool = modelInstancePool;
         this.modelInstanceList = new ObjectArrayList<>(64);
     }
@@ -65,15 +72,36 @@ public class ModelTypeData {
         return modelInstanceList.size();
     }
 
+    /**
+     * After this is set once, until it's reset, this will ignore any subsequent
+     * calls to this method.
+     */
+    public void setRenderLayer(RenderLayer renderLayer) {
+        if (this.renderLayer == null) {
+            this.renderLayer = renderLayer;
+        }
+    }
+
+    public RenderLayer getRenderLayer() {
+        return renderLayer;
+    }
+
+    public VboBackedModel getModel() {
+        return model;
+    }
+
     public void reset() {
         for(ModelInstanceData modelInstanceData : modelInstanceList) {
             modelInstancePool.enqueue(modelInstanceData);
         }
         modelInstanceList.clear();
         currentModelInstanceData = null;
+        renderLayer = null;
     }
 
     public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
+        if (renderLayer == null) throw new IllegalStateException("Render layer not set");
+
         for (ModelInstanceData modelInstanceData : modelInstanceList) {
             modelInstanceData.writeToPbos(modelPbo, partPbo);
         }

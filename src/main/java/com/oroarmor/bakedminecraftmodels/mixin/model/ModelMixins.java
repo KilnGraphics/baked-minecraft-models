@@ -88,7 +88,7 @@ public abstract class ModelMixins implements VboBackedModel {
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType((Model) (Object) this, null));
+        GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
         GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
 
         bmm$currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
