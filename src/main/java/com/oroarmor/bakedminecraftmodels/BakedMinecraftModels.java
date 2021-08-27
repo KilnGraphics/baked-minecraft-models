@@ -33,7 +33,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
     public static final String MOD_ID = "baked_minecraft_models";
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
     private static final boolean EXPORT_MODELS_TO_OBJ = false;
-    private static final boolean ENABLE_RENDERDOC = true;
+    private static final boolean ENABLE_RENDERDOC = false;
 
     // RenderDoc Vertex Format:
     /*
@@ -41,7 +41,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
      vec2 uv
      byte3 normal
      byte padding
-     int id
+     uint id
     */
 
     // RenderDoc Part SSBO Format:
@@ -54,7 +54,8 @@ public class BakedMinecraftModels implements ClientModInitializer {
      vec4 Color;
      ivec2 UV1;
      ivec2 UV2;
-     int partOffset; // TODO: make this a uint if needed
+     vec3 padding;
+     uint partOffset;
     */
 
     @Override

@@ -27,15 +27,15 @@ package com.oroarmor.bakedminecraftmodels.data;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 
 public class ModelInstanceData {
 
-    private final List<Matrix4f> modelViewMatrixList;
+    private final ObjectList<Matrix4f> modelViewMatrixList;
     private Matrix4f baseModelViewMatrix;
     private boolean colorSet;
     private float red;
@@ -53,7 +53,7 @@ public class ModelInstanceData {
         this.modelViewMatrixList = new ObjectArrayList<>(10);
     }
 
-    public List<Matrix4f> getMatrices() {
+    public ObjectList<Matrix4f> getMatrices() {
         return modelViewMatrixList;
     }
 
@@ -124,6 +124,7 @@ public class ModelInstanceData {
         modelPboPointer.putInt(overlayY);
         modelPboPointer.putInt(lightX);
         modelPboPointer.putInt(lightY);
+        modelPboPointer.position(modelPboPointer.position() + 12);
         modelPboPointer.putInt((partPboPointer.position() - (int) (partPbo.getCurrentSection() * partPbo.getSectionSize())) / GlobalModelUtils.PART_STRUCT_SIZE);
 
         for (Matrix4f modelViewMatrix : modelViewMatrixList) {

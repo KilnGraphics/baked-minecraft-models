@@ -27,6 +27,7 @@ package com.oroarmor.bakedminecraftmodels.mixin.entity;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
+import com.oroarmor.bakedminecraftmodels.data.ModelTypeData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import com.oroarmor.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
@@ -59,9 +60,7 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
     }
 
     public void renderQueues() {
-        if (bakingData.getCurrentModelTypeData() == null) return;
-        int instanceCount = bakingData.getCurrentModelTypeData().getInstanceCount();
-        if (instanceCount <= 0) return;
+        int instanceOffset = 0;
 
         SectionedPbo partPbo = getOrCreatePartPbo();
         SectionedPbo modelPbo = getOrCreateModelPbo();
@@ -86,91 +85,102 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
         GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
         GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelPbo.getSectionSize());
 
-        RenderLayer layer = bakingData.getCurrentModelTypeData().getRenderLayer();
-        if (layer == null) {
-            throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
-        }
-        VertexBuffer vertexBuffer = bakingData.getCurrentModelTypeData().getModel().getBakedVertices();
-        VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
-        int vertexCount = vertexBufferAccessor.getVertexCount();
-        VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-        Shader shader = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL;
-        if (shader == null) {
-            throw new IllegalStateException("Smart entity shader is null");
+        for (ModelTypeData modelTypeData : bakingData.getAllModelTypeData()) {
+            int instanceCount = modelTypeData.getInstanceCount();
+            if (instanceCount <= 0) continue;
+
+            RenderLayer layer = modelTypeData.getRenderLayer();
+            if (layer == null) {
+                throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
+            }
+            VertexBuffer vertexBuffer = modelTypeData.getModel().getBakedVertices();
+            VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
+            int vertexCount = vertexBufferAccessor.getVertexCount();
+            VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+            Shader shader = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL;
+            if (shader == null) {
+                throw new IllegalStateException("Smart entity shader is null");
+            }
+
+            if (currentPartSyncObject != MemoryUtil.NULL) {
+                GL32C.glDeleteSync(currentPartSyncObject);
+            }
+            SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
+
+            partPbo.nextSection();
+            modelPbo.nextSection();
+            SYNC_OBJECTS.nextSection();
+
+            if (vertexCount != 0) {
+                layer.startDrawing();
+                RenderSystem.assertThread(RenderSystem::isOnRenderThread);
+                BufferRenderer.unbindAll();
+
+                for (int i = 0; i < 12; ++i) {
+                    int j = RenderSystem.getShaderTexture(i);
+                    shader.addSampler("Sampler" + i, j);
+                }
+
+                if (shader.projectionMat != null) {
+                    shader.projectionMat.set(RenderSystem.getProjectionMatrix());
+                }
+
+                if (shader.colorModulator != null) {
+                    shader.colorModulator.set(RenderSystem.getShaderColor());
+                }
+
+                if (shader.fogStart != null) {
+                    shader.fogStart.set(RenderSystem.getShaderFogStart());
+                }
+
+                if (shader.fogEnd != null) {
+                    shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+                }
+
+                if (shader.fogColor != null) {
+                    shader.fogColor.set(RenderSystem.getShaderFogColor());
+                }
+
+                if (shader.textureMat != null) {
+                    shader.textureMat.set(RenderSystem.getTextureMatrix());
+                }
+
+                if (shader.gameTime != null) {
+                    shader.gameTime.set(RenderSystem.getShaderGameTime());
+                }
+
+                if (shader.screenSize != null) {
+                    Window window = MinecraftClient.getInstance().getWindow();
+                    shader.screenSize.set((float) window.getFramebufferWidth(), (float) window.getFramebufferHeight());
+                }
+
+                if (shader.lineWidth != null && (drawMode == VertexFormat.DrawMode.LINES || drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
+                    shader.lineWidth.set(RenderSystem.getShaderLineWidth());
+                }
+
+                if (BakedMinecraftModelsShaderManager.INSTANCE_OFFSET != null) {
+                    BakedMinecraftModelsShaderManager.INSTANCE_OFFSET.set(instanceOffset);
+                }
+
+                RenderSystem.setupShaderLights(shader);
+                vertexBufferAccessor.invokeBindVertexArray();
+                vertexBufferAccessor.invokeBind();
+                vertexBuffer.getElementFormat().startDrawing();
+                shader.bind();
+                GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
+                shader.unbind();
+                vertexBuffer.getElementFormat().endDrawing();
+                VertexBuffer.unbind();
+                VertexBuffer.unbindVertexArray();
+                layer.endDrawing();
+            }
+
+            instanceOffset += instanceCount;
         }
 
         bakingData.reset();
-
-        if (currentPartSyncObject != MemoryUtil.NULL) {
-            GL32C.glDeleteSync(currentPartSyncObject);
-        }
-        SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
-
-        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
-        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
-
-        partPbo.nextSection();
-        modelPbo.nextSection();
-        SYNC_OBJECTS.nextSection();
-
-        if (vertexCount != 0) {
-            layer.startDrawing();
-            RenderSystem.assertThread(RenderSystem::isOnRenderThread);
-            BufferRenderer.unbindAll();
-
-            for(int i = 0; i < 12; ++i) {
-                int j = RenderSystem.getShaderTexture(i);
-                shader.addSampler("Sampler" + i, j);
-            }
-
-            if (shader.projectionMat != null) {
-                shader.projectionMat.set(RenderSystem.getProjectionMatrix());
-            }
-
-            if (shader.colorModulator != null) {
-                shader.colorModulator.set(RenderSystem.getShaderColor());
-            }
-
-            if (shader.fogStart != null) {
-                shader.fogStart.set(RenderSystem.getShaderFogStart());
-            }
-
-            if (shader.fogEnd != null) {
-                shader.fogEnd.set(RenderSystem.getShaderFogEnd());
-            }
-
-            if (shader.fogColor != null) {
-                shader.fogColor.set(RenderSystem.getShaderFogColor());
-            }
-
-            if (shader.textureMat != null) {
-                shader.textureMat.set(RenderSystem.getTextureMatrix());
-            }
-
-            if (shader.gameTime != null) {
-                shader.gameTime.set(RenderSystem.getShaderGameTime());
-            }
-
-            if (shader.screenSize != null) {
-                Window window = MinecraftClient.getInstance().getWindow();
-                shader.screenSize.set((float)window.getFramebufferWidth(), (float)window.getFramebufferHeight());
-            }
-
-            if (shader.lineWidth != null && (drawMode == VertexFormat.DrawMode.LINES || drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
-                shader.lineWidth.set(RenderSystem.getShaderLineWidth());
-            }
-
-            RenderSystem.setupShaderLights(shader);
-            vertexBufferAccessor.invokeBindVertexArray();
-            vertexBufferAccessor.invokeBind();
-            vertexBuffer.getElementFormat().startDrawing();
-            shader.bind();
-            GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
-            shader.unbind();
-            vertexBuffer.getElementFormat().endDrawing();
-            VertexBuffer.unbind();
-            VertexBuffer.unbindVertexArray();
-            layer.endDrawing();
-        }
     }
 }

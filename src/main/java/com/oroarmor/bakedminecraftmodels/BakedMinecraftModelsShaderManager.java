@@ -26,17 +26,20 @@ package com.oroarmor.bakedminecraftmodels;
 
 import java.io.IOException;
 
+import net.minecraft.client.gl.GlUniform;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.client.render.Shader;
 import net.minecraft.resource.ResourceManager;
 
 public class BakedMinecraftModelsShaderManager {
-    public static @Nullable Shader SMART_ENTITY_CUTOUT_NO_CULL = null;
+    public static @Nullable Shader SMART_ENTITY_CUTOUT_NO_CULL;
+    public static @Nullable GlUniform INSTANCE_OFFSET;
 
     public static void loadShaders(ResourceManager manager) {
         try {
             SMART_ENTITY_CUTOUT_NO_CULL = new Shader(manager, "rendertype_entity_cutout_no_cull_smart", BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
+            INSTANCE_OFFSET = SMART_ENTITY_CUTOUT_NO_CULL.getUniform("InstanceOffset");
         } catch (IOException e) {
             e.printStackTrace();
         }

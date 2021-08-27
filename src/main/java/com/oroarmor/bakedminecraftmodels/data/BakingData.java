@@ -24,13 +24,12 @@
 
 package com.oroarmor.bakedminecraftmodels.data;
 
-import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayFIFOQueue;
-import it.unimi.dsi.fastutil.objects.ObjectHeapPriorityQueue;
 
+import java.util.Collection;
 import java.util.Map;
 
 public class BakingData {
@@ -50,6 +49,10 @@ public class BakingData {
 
     public ModelTypeData getCurrentModelTypeData() {
         return currentModelTypeData;
+    }
+
+    public Collection<ModelTypeData> getAllModelTypeData() {
+        return modelTypeMap.values();
     }
 
     public void reset() {

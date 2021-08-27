@@ -5,13 +5,15 @@
 in vec3 Position;
 in vec2 UV0;
 in vec3 Normal;
-in int PartId;
+in uint PartId;
 
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 uniform mat4 ProjMat;
 uniform vec3 Light0_Direction;
 uniform vec3 Light1_Direction;
+
+uniform int InstanceOffset; // minecraft doesn't have a way to set uints
 
 struct ModelPart {
     mat4 modelViewMat;
@@ -25,7 +27,8 @@ struct Model {
     vec4 Color;
     ivec2 UV1;
     ivec2 UV2;
-    int partOffset;
+    vec3 padding;
+    uint partOffset;
 };
 
 layout(std430, binding = 2) buffer modelsLayout {
@@ -43,7 +46,7 @@ void main() {
     #ifdef VULKAN
         Model model = modelsSsbo.models[gl_InstanceIndex];
     #else
-        Model model = modelsSsbo.models[gl_InstanceID];
+        Model model = modelsSsbo.models[InstanceOffset + gl_InstanceID];
     #endif
     ModelPart modelPart = modelPartsSsbo.modelParts[model.partOffset + PartId];
 
