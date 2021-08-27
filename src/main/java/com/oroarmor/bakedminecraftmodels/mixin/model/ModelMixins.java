@@ -94,6 +94,7 @@ public abstract class ModelMixins implements VboBackedModel {
             GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
             GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer());
             GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
+            GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
         }
     }
 

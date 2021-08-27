@@ -28,10 +28,8 @@ import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.RenderLayer;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
 public class ModelTypeData {

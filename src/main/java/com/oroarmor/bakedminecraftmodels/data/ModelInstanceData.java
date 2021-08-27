@@ -36,6 +36,7 @@ import java.util.List;
 public class ModelInstanceData {
 
     private final List<Matrix4f> modelViewMatrixList;
+    private Matrix4f baseModelViewMatrix;
     private boolean colorSet;
     private float red;
     private float green;
@@ -94,11 +95,18 @@ public class ModelInstanceData {
         }
     }
 
+    public void setBaseModelViewMatrix(Matrix4f baseModelViewMatrix) {
+        if (this.baseModelViewMatrix == null) {
+            this.baseModelViewMatrix = baseModelViewMatrix;
+        }
+    }
+
     public void reset() {
         modelViewMatrixList.clear();
         colorSet = false;
         overlaySet = false;
         lightSet = false;
+        baseModelViewMatrix = null;
     }
 
     public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
@@ -119,14 +127,11 @@ public class ModelInstanceData {
         modelPboPointer.putInt((partPboPointer.position() - (int) (partPbo.getCurrentSection() * partPbo.getSectionSize())) / GlobalModelUtils.PART_STRUCT_SIZE);
 
         for (Matrix4f modelViewMatrix : modelViewMatrixList) {
-            if (modelViewMatrix != null) {
-                partPboPointer.putFloat(modelViewMatrix.a00).putFloat(modelViewMatrix.a10).putFloat(modelViewMatrix.a20).putFloat(modelViewMatrix.a30)
-                        .putFloat(modelViewMatrix.a01).putFloat(modelViewMatrix.a11).putFloat(modelViewMatrix.a21).putFloat(modelViewMatrix.a31)
-                        .putFloat(modelViewMatrix.a02).putFloat(modelViewMatrix.a12).putFloat(modelViewMatrix.a22).putFloat(modelViewMatrix.a32)
-                        .putFloat(modelViewMatrix.a03).putFloat(modelViewMatrix.a13).putFloat(modelViewMatrix.a23).putFloat(modelViewMatrix.a33);
-            } else {
-                partPboPointer.put(GlobalModelUtils.IDENTITY_MATRIX_BUFFER);
-            }
+            if (modelViewMatrix == null) modelViewMatrix = baseModelViewMatrix;
+            partPboPointer.putFloat(modelViewMatrix.a00).putFloat(modelViewMatrix.a10).putFloat(modelViewMatrix.a20).putFloat(modelViewMatrix.a30)
+                    .putFloat(modelViewMatrix.a01).putFloat(modelViewMatrix.a11).putFloat(modelViewMatrix.a21).putFloat(modelViewMatrix.a31)
+                    .putFloat(modelViewMatrix.a02).putFloat(modelViewMatrix.a12).putFloat(modelViewMatrix.a22).putFloat(modelViewMatrix.a32)
+                    .putFloat(modelViewMatrix.a03).putFloat(modelViewMatrix.a13).putFloat(modelViewMatrix.a23).putFloat(modelViewMatrix.a33);
         }
     }
 
