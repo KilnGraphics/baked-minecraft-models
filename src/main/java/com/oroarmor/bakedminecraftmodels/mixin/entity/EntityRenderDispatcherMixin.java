@@ -85,6 +85,11 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
         GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
         GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelPbo.getSectionSize());
 
+        if (currentPartSyncObject != MemoryUtil.NULL) {
+            GL32C.glDeleteSync(currentPartSyncObject);
+        }
+        SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+
         for (ModelTypeData modelTypeData : bakingData.getAllModelTypeData()) {
             int instanceCount = modelTypeData.getInstanceCount();
             if (instanceCount <= 0) continue;
@@ -101,11 +106,6 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
             if (shader == null) {
                 throw new IllegalStateException("Smart entity shader is null");
             }
-
-            if (currentPartSyncObject != MemoryUtil.NULL) {
-                GL32C.glDeleteSync(currentPartSyncObject);
-            }
-            SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
