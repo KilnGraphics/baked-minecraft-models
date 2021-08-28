@@ -49,7 +49,7 @@ import java.nio.FloatBuffer;
 
 public class GlobalModelUtils {
 
-    public static final int MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + Integer.BYTES;
+    public static final int MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (4 * Float.BYTES);
     public static final int PART_STRUCT_SIZE = 16 * Float.BYTES;
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
@@ -60,8 +60,10 @@ public class GlobalModelUtils {
 
     public static final int BUFFER_SECTIONS = 3;
 
-    public static final long PART_PBO_SIZE = 8192 * 16 * PART_STRUCT_SIZE; // 8192 entities with 16 parts. this takes about 25mb after triple buffering
-    public static final long MODEL_PBO_SIZE = 2048 * 100 * MODEL_STRUCT_SIZE; // 2048 entities per type, 100 types. this takes about 22mb after triple buffering
+    public static final int ENTITY_LIMIT = 8192;
+
+    public static final long PART_PBO_SIZE = ENTITY_LIMIT * 16 * PART_STRUCT_SIZE; // assume each entity has on average 16 parts
+    public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * MODEL_STRUCT_SIZE;
 
     public static final BakingData bakingData = new BakingData();
 
