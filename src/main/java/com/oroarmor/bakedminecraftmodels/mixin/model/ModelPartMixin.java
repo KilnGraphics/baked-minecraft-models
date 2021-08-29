@@ -25,9 +25,8 @@
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
+import com.oroarmor.bakedminecraftmodels.data.MatrixList;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumer;
@@ -79,10 +78,9 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Inject(method = "rotate", at = @At("TAIL"))
     public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
-            ObjectList<Matrix4f> matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrices();
+            MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrixList();
             if (this.visible) {
-                if (matrixList.size() < bmm$id + 1) matrixList.size(bmm$id + 1); // size has to be 1 bigger than index, index starts at 0
-                matrixList.set(bmm$id, matrices.peek().getModel());
+                matrixList.add(bmm$id, matrices.peek().getModel());
             }
         }
     }

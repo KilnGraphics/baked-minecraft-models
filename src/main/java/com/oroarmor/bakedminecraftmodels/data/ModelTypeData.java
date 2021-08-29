@@ -30,6 +30,7 @@ import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.RenderLayer;
 
+import java.util.LinkedList;
 import java.util.List;
 
 public class ModelTypeData {
@@ -44,7 +45,7 @@ public class ModelTypeData {
     public ModelTypeData(PriorityQueue<ModelInstanceData> modelInstancePool, VboBackedModel model) {
         this.model = model;
         this.modelInstancePool = modelInstancePool;
-        this.modelInstanceList = new ObjectArrayList<>(64);
+        this.modelInstanceList = new LinkedList<>();
     }
 
     private ModelInstanceData getModelInstanceData() {

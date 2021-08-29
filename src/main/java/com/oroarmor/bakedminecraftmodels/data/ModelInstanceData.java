@@ -26,16 +26,16 @@ package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 
 public class ModelInstanceData {
 
-    private final ObjectList<Matrix4f> modelViewMatrixList;
+    private final MatrixList modelViewMatrixList;
     private Matrix4f baseModelViewMatrix;
     private boolean colorSet;
     private float red;
@@ -50,10 +50,10 @@ public class ModelInstanceData {
     private int lightY;
 
     public ModelInstanceData() {
-        this.modelViewMatrixList = new ObjectArrayList<>(10);
+        this.modelViewMatrixList = new MatrixList();
     }
 
-    public ObjectList<Matrix4f> getMatrices() {
+    public MatrixList getMatrixList() {
         return modelViewMatrixList;
     }
 
@@ -127,13 +127,31 @@ public class ModelInstanceData {
         modelPboPointer.position(modelPboPointer.position() + 12);
         modelPboPointer.putInt((partPboPointer.position() - (int) (partPbo.getCurrentSection() * partPbo.getSectionSize())) / GlobalModelUtils.PART_STRUCT_SIZE);
 
-        for (Matrix4f modelViewMatrix : modelViewMatrixList) {
-            if (modelViewMatrix == null) modelViewMatrix = baseModelViewMatrix;
-            partPboPointer.putFloat(modelViewMatrix.a00).putFloat(modelViewMatrix.a10).putFloat(modelViewMatrix.a20).putFloat(modelViewMatrix.a30)
-                    .putFloat(modelViewMatrix.a01).putFloat(modelViewMatrix.a11).putFloat(modelViewMatrix.a21).putFloat(modelViewMatrix.a31)
-                    .putFloat(modelViewMatrix.a02).putFloat(modelViewMatrix.a12).putFloat(modelViewMatrix.a22).putFloat(modelViewMatrix.a32)
-                    .putFloat(modelViewMatrix.a03).putFloat(modelViewMatrix.a13).putFloat(modelViewMatrix.a23).putFloat(modelViewMatrix.a33);
+        int currentPos = partPboPointer.position();
+        int matrixCount = modelViewMatrixList.getLargestIndex() + 1;
+        boolean[] indexWrittenArray = new boolean[matrixCount];
+        MatrixList.Node currentNode;
+        while ((currentNode = modelViewMatrixList.next()) != null) {
+            int idx = currentNode.getIndex();
+            indexWrittenArray[idx] = true;
+            writeMatrix4f(partPboPointer, currentNode.getMatrix(), currentPos + idx * GlobalModelUtils.PART_STRUCT_SIZE);
         }
+
+        for (int idx = 0; idx < indexWrittenArray.length; idx++) {
+            if (!indexWrittenArray[idx]) {
+                writeMatrix4f(partPboPointer, baseModelViewMatrix, currentPos + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+            }
+        }
+        modelViewMatrixList.reset();
+        partPboPointer.position(currentPos + matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
+    }
+
+    private void writeMatrix4f(ByteBuffer buffer, Matrix4f matrix, int position) {
+        buffer.position(position);
+        buffer.putFloat(matrix.a00).putFloat(matrix.a10).putFloat(matrix.a20).putFloat(matrix.a30)
+                .putFloat(matrix.a01).putFloat(matrix.a11).putFloat(matrix.a21).putFloat(matrix.a31)
+                .putFloat(matrix.a02).putFloat(matrix.a12).putFloat(matrix.a22).putFloat(matrix.a32)
+                .putFloat(matrix.a03).putFloat(matrix.a13).putFloat(matrix.a23).putFloat(matrix.a33);
     }
 
 }
