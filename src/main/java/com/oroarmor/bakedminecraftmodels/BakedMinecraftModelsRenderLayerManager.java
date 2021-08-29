@@ -30,6 +30,7 @@ import java.util.Map;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexFormats;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,7 +79,22 @@ public class BakedMinecraftModelsRenderLayerManager {
                     dumbMultiPhaseRenderPass.getHasCrumbling(),
                     dumbMultiPhaseRenderPass.getTranslucent(),
                     phaseParameters
-            );
+            ) {
+                /**
+                 * Minecraft spends a long time with the startDrawing and endDrawing setting opengl variables and such.
+                 * We don't want that because we know the vertex count will always be 0.
+                 */
+                @Override
+                public void draw(BufferBuilder buffer, int cameraX, int cameraY, int cameraZ) {
+                    if (buffer.isBuilding()) {
+                        if (((RenderLayerAccessor) (Object) this).getTranslucent()) {
+                            buffer.setCameraPosition((float)cameraX, (float)cameraY, (float)cameraZ);
+                        }
+
+                        buffer.end();
+                    }
+                }
+            };
         });
     }
 }

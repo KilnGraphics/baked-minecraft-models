@@ -110,7 +110,8 @@ public abstract class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
-            bmm$currentPassNestedBuilder.end();
+//            ((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer().draw(bmm$currentPassNestedBuilder, 0, 0, 0);
+            bmm$currentPassNestedBuilder.end(); // FIXME: this is weird
             setBakedVertices(new VertexBuffer());
             getBakedVertices().upload(bmm$currentPassNestedBuilder);
         }

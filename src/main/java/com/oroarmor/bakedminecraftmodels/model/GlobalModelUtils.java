@@ -106,15 +106,14 @@ public class GlobalModelUtils {
     }
 
     public static boolean isSmartBufferBuilder(BufferBuilder nestedBuilder) {
-        // what have i done
-        return ((BufferBuilderAccessor) nestedBuilder)
-                .getFormat()
-                .equals(BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT)
-                && ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) ((RenderLayerCreatedVertexConsumer) nestedBuilder)
-                .getRenderLayer())
-                .getPhases())
-                .getShader()
-                .equals(BakedMinecraftModelsRenderLayerManager.SMART_ENTITY_CUTOUT_NO_CULL_PHASE);
+        if (((BufferBuilderAccessor) nestedBuilder).getFormat().equals(BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT)) {
+            if (nestedBuilder instanceof RenderLayerCreatedVertexConsumer renderLayerCreatedVertexConsumer) {
+                if (renderLayerCreatedVertexConsumer.getRenderLayer() instanceof MultiPhaseRenderPassAccessor multiPhaseRenderPassAccessor) {
+                    return ((MultiPhaseParametersAccessor) (Object) multiPhaseRenderPassAccessor.getPhases()).getShader().equals(BakedMinecraftModelsRenderLayerManager.SMART_ENTITY_CUTOUT_NO_CULL_PHASE);
+                }
+            }
+        }
+        return false;
     }
 
 }

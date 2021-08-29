@@ -29,17 +29,19 @@ import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(VertexConsumerProvider.Immediate.class)
-public class VertexConsumerProviderImmediateMixin {
+public abstract class VertexConsumerProviderImmediateMixin {
     @Inject(method = "getBuffer", at = @At("RETURN"))
-    public void attachRenderLayerToBuffer(RenderLayer renderLayer, CallbackInfoReturnable<VertexConsumer> cir) {
+    private void attachRenderLayerToBuffer(RenderLayer renderLayer, CallbackInfoReturnable<VertexConsumer> cir) {
         BufferBuilder builder = GlobalModelUtils.getNestedBufferBuilder(cir.getReturnValue()); // TODO: I don't think this conversion is necessary
         ((RenderLayerCreatedVertexConsumer) builder).setRenderLayer(renderLayer);
     }
