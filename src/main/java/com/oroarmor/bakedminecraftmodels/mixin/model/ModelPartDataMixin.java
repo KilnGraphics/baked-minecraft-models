@@ -48,7 +48,7 @@ public class ModelPartDataMixin implements BakeablePartBuilder {
     private int bmm$nextId = 1;
 
     @Unique
-    private final IntSortedSet bmm$reusableIdQueue = new IntRBTreeSet();
+    private IntSortedSet bmm$recycledIdQueue;
 
     @Unique
     @Nullable
@@ -75,18 +75,24 @@ public class ModelPartDataMixin implements BakeablePartBuilder {
         return bmm$parent;
     }
 
+    private IntSortedSet bmm$getOrCreateRecycledIdQueue() {
+        if (bmm$recycledIdQueue == null) {
+            bmm$recycledIdQueue = new IntRBTreeSet();
+        }
+        return bmm$recycledIdQueue;
+    }
+
     @Override
     public int getNextAvailableModelId() {
-        if (getParent() == null) {
-            if (bmm$reusableIdQueue.isEmpty()) {
-                return bmm$nextId++;
-            } else {
-                int id = bmm$reusableIdQueue.firstInt();
-                bmm$reusableIdQueue.remove(id);
-                return id;
-            }
+        ModelPartDataMixin topLevelParent = ((ModelPartDataMixin) bmm$getTopLevelParent());
+        IntSortedSet recycledIds = topLevelParent.bmm$getOrCreateRecycledIdQueue();
+        if (recycledIds.isEmpty()) {
+            return topLevelParent.bmm$nextId++;
+        } else {
+            int id = recycledIds.firstInt();
+            recycledIds.remove(id);
+            return id;
         }
-        return getParent().getNextAvailableModelId();
     }
 
     @Inject(method = "addChild", at = @At("RETURN"))
@@ -105,14 +111,19 @@ public class ModelPartDataMixin implements BakeablePartBuilder {
 
     @Unique
     private void bmm$makeIdReusable(int id) {
-        BakeablePartBuilder parent = this;
-        while (parent != null && parent.getParent() != null) {
-            parent = parent.getParent();
-        }
-
-        ((ModelPartDataMixin) parent).bmm$reusableIdQueue.add(id);
+        ((ModelPartDataMixin) bmm$getTopLevelParent()).bmm$getOrCreateRecycledIdQueue().add(id);
     }
 
+    @Unique
+    private BakeablePartBuilder bmm$getTopLevelParent() {
+        BakeablePartBuilder parent = this;
+        while (parent.getParent() != null) {
+            parent = parent.getParent();
+        }
+        return parent;
+    }
+
+    @SuppressWarnings("ConstantConditions")
     @Inject(method = "createPart", at = @At("RETURN"))
     public void setModelPartID(int textureWidth, int textureHeight, CallbackInfoReturnable<ModelPart> cir) {
         ((BakeablePart) (Object) cir.getReturnValue()).setId(this.bmm$id);

@@ -26,9 +26,7 @@ package com.oroarmor.bakedminecraftmodels.model;
 
 import net.minecraft.client.gl.VertexBuffer;
 
-// TODO: move some stuff out of here, call this GlVboModel
 public interface VboBackedModel {
 
     VertexBuffer getBakedVertices();
-    void setBakedVertices(VertexBuffer vertexBuffer);
 }

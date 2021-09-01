@@ -49,10 +49,6 @@ public class SectionedPbo {
         return name;
     }
 
-    public int getSectionCount() {
-        return sectionCount;
-    }
-
     public long getSectionSize() {
         return sectionSize;
     }

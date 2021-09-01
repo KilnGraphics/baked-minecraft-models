@@ -30,11 +30,9 @@ import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ModelPart.Cuboid.class)
@@ -60,7 +58,7 @@ public class CuboidMixin implements BakeablePart {
 
         if (GlobalModelUtils.isSmartBufferBuilder(nestedBufferBuilder)) {
             vertexConsumer.vertex(x, y, z).texture(u, v).normal(normalX, normalY, normalZ);
-            nestedAccessor.getBuffer().putInt(nestedAccessor.getElementOffset(), bmm$id);
+            nestedAccessor.getBuffer().putInt(nestedAccessor.getElementOffset(), getId());
             nestedBufferBuilder.nextElement();
             vertexConsumer.next();
         } else {

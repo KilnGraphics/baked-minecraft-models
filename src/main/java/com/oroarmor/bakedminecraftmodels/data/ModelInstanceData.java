@@ -28,8 +28,6 @@ import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 

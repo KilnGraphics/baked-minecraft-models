@@ -44,9 +44,6 @@ import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
 import org.lwjgl.system.MemoryUtil;
 
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
-
 public class GlobalModelUtils {
 
     public static final int MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (4 * Float.BYTES);
@@ -105,6 +102,7 @@ public class GlobalModelUtils {
                 (BufferBuilder) consumer;
     }
 
+    @SuppressWarnings("ConstantConditions")
     public static boolean isSmartBufferBuilder(BufferBuilder nestedBuilder) {
         if (((BufferBuilderAccessor) nestedBuilder).getFormat().equals(BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT)) {
             if (nestedBuilder instanceof RenderLayerCreatedVertexConsumer renderLayerCreatedVertexConsumer) {

@@ -41,6 +41,7 @@ public class BakedMinecraftModelsRenderLayerManager {
     private static final Map<RenderLayer, RenderLayer> dumbToSmart = new HashMap<>();
     public static final RenderPhase.Shader SMART_ENTITY_CUTOUT_NO_CULL_PHASE = new RenderPhase.Shader(() -> BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
 
+    @SuppressWarnings("ConstantConditions")
     public static RenderLayer tryDeriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
         if (dumbRenderLayer == null) {
             return null;

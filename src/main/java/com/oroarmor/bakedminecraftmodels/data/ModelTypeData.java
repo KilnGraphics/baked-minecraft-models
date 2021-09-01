@@ -27,7 +27,6 @@ package com.oroarmor.bakedminecraftmodels.data;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.PriorityQueue;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.RenderLayer;
 
 import java.util.LinkedList;

@@ -74,9 +74,8 @@ public abstract class ModelMixins implements VboBackedModel {
         return bmm$bakedVertices;
     }
 
-    @Override
     @Unique
-    public void setBakedVertices(VertexBuffer bmm$bakedVertices) {
+    private void setBakedVertices(VertexBuffer bmm$bakedVertices) {
         this.bmm$bakedVertices = bmm$bakedVertices;
     }
 

@@ -33,14 +33,6 @@ public class SectionedSyncObjects {
         this.syncObjects = new long[sectionCount]; // these are 0 (null) by default
     }
 
-    public int getSectionCount() {
-        return syncObjects.length;
-    }
-
-    public int getCurrentSection() {
-        return currentSection;
-    }
-
     public long getCurrentSyncObject() {
         return syncObjects[currentSection];
     }

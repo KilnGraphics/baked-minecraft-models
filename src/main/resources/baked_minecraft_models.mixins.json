@@ -19,7 +19,7 @@
     "model.ModelMixins",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",
-    "renderlayer.LivingEntityRendererMixin",
+    "renderlayer.ModelMixin",
     "renderlayer.MultiPhaseParametersAccessor",
     "renderlayer.MultiPhaseRenderPassAccessor",
     "renderlayer.RenderLayerAccessor",

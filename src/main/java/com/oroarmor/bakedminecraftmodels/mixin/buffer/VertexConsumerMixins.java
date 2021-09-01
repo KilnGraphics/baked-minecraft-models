@@ -25,8 +25,6 @@
 package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
 import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumers;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 

@@ -29,14 +29,12 @@ import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(VertexConsumerProvider.Immediate.class)
 public abstract class VertexConsumerProviderImmediateMixin {

@@ -25,7 +25,6 @@
 package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
-import net.minecraft.client.model.Model;
 import net.minecraft.client.render.RenderLayer;
 
 public record ModelType(VboBackedModel model, RenderLayer renderLayer) {
