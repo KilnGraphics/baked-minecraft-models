@@ -29,11 +29,13 @@ import com.oroarmor.bakedminecraftmodels.data.ModelInstanceData;
 import com.oroarmor.bakedminecraftmodels.data.ModelType;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
+import com.oroarmor.bakedminecraftmodels.vertex.RenderLayerContainer;
 import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
 import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
@@ -76,38 +78,41 @@ public abstract class ModelMixins implements VboBackedModel {
     }
 
     @Unique
-    private void setBakedVertices(VertexBuffer bmm$bakedVertices) {
-        this.bmm$bakedVertices = bmm$bakedVertices;
-    }
-
-    @Unique
     private boolean bmm$currentPassBakeable;
 
     @Unique
-    private SmartBufferBuilderWrapper bmm$currentPassNestedConsumer;
+    private VertexFormat.DrawMode bmm$drawMode;
+
+    @Unique
+    private VertexFormat bmm$vertexFormat;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof SmartBufferBuilderWrapper smartBufferBuilderWrapper) {
-            bmm$currentPassNestedConsumer = smartBufferBuilderWrapper;
-            RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(bmm$currentPassNestedConsumer.getRenderLayer());
+        if (GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
+            RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(renderLayerContainer.getRenderLayer());
             bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
             if (bmm$currentPassBakeable) {
+                bmm$drawMode = convertedRenderLayer.getDrawMode();
+                bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
                 GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(convertedRenderLayer);
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
             }
         } else {
-            bmm$currentPassNestedConsumer = null;
             bmm$currentPassBakeable = false;
+            bmm$drawMode = null;
+            bmm$vertexFormat = null;
         }
     }
 
     @ModifyVariable(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
-    private VertexConsumer disableImmediateRendering(VertexConsumer existingConsumer) {
+    private VertexConsumer changeVertexConsumer(VertexConsumer existingConsumer) {
         if (getBakedVertices() != null && bmm$currentPassBakeable) {
             return null;
+        } else if (bmm$currentPassBakeable) {
+            GlobalModelUtils.VBO_BUFFER_BUILDER.begin(bmm$drawMode, bmm$vertexFormat);
+            return GlobalModelUtils.VBO_BUFFER_BUILDER;
         } else {
             return existingConsumer;
         }
@@ -117,9 +122,10 @@ public abstract class ModelMixins implements VboBackedModel {
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
 //            ((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer().draw(bmm$currentPassNestedBuilder, 0, 0, 0);
-            bmm$currentPassNestedConsumer.end(); // FIXME: this is weird
-            setBakedVertices(new VertexBuffer());
-            getBakedVertices().upload(bmm$currentPassNestedConsumer.getInternalBufferBuilder());
+            GlobalModelUtils.VBO_BUFFER_BUILDER.end(); // FIXME: this is weird
+            bmm$bakedVertices = new VertexBuffer();
+            getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
+            GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
         }
     }
 

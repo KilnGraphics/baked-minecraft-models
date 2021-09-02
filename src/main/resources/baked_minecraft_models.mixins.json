@@ -6,7 +6,7 @@
   "mixins": [
   ],
   "client": [
-    "renderlayer.RenderPhaseShaderAccessor",
+    "renderlayer.BufferBuilderMixin",
     "GameRendererMixin",
     "GlUniformMixin",
     "WorldRendererMixin",
@@ -21,7 +21,8 @@
     "renderlayer.MultiPhaseParametersAccessor",
     "renderlayer.MultiPhaseRenderPassAccessor",
     "renderlayer.RenderLayerAccessor",
-    "renderlayer.RenderPhaseAccessor"
+    "renderlayer.RenderPhaseAccessor",
+    "renderlayer.RenderPhaseShaderAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

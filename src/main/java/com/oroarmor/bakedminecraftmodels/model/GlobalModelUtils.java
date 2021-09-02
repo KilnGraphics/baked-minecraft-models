@@ -29,6 +29,7 @@ import com.oroarmor.bakedminecraftmodels.data.BakingData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
+import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
@@ -57,6 +58,8 @@ public class GlobalModelUtils {
     public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * MODEL_STRUCT_SIZE;
 
     public static final BakingData bakingData = new BakingData();
+
+    public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
 
     // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
     private static SectionedPbo PART_PBO;

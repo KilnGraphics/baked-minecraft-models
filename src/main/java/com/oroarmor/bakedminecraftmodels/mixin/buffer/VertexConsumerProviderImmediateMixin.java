@@ -25,6 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
+import com.oroarmor.bakedminecraftmodels.vertex.RenderLayerContainer;
 import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
@@ -37,8 +38,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(VertexConsumerProvider.Immediate.class)
 public abstract class VertexConsumerProviderImmediateMixin {
-    @Inject(method = "getBuffer", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "getBuffer", at = @At("RETURN"))
     private void attachRenderLayerToBuffer(RenderLayer renderLayer, CallbackInfoReturnable<VertexConsumer> cir) {
-        if(BakedMinecraftModelsRenderLayerManager.isSmartRenderLayer(renderLayer)) cir.setReturnValue(new SmartBufferBuilderWrapper((BufferBuilder) cir.getReturnValue(), renderLayer));
+        VertexConsumer consumer = cir.getReturnValue();
+        if (consumer instanceof RenderLayerContainer renderLayerContainer) {
+            renderLayerContainer.setRenderLayer(renderLayer);
+        }
     }
 }

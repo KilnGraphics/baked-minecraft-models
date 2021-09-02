@@ -4,14 +4,13 @@ import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
-    private final RenderLayer renderLayer;
 
-    public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder, RenderLayer renderLayer) {
+    public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
         this.internalBufferBuilder = internalBufferBuilder;
-        this.renderLayer = renderLayer;
     }
 
     @Override
@@ -75,12 +74,16 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         this.partId = partId;
     }
 
-    public RenderLayer getRenderLayer() {
-        return renderLayer;
+    public void begin(VertexFormat.DrawMode drawMode, VertexFormat vertexFormat) {
+        internalBufferBuilder.begin(drawMode, vertexFormat);
     }
 
     public void end() {
         internalBufferBuilder.end();
+    }
+
+    public void clear() {
+        internalBufferBuilder.clear();
     }
 
     public BufferBuilder getInternalBufferBuilder() {

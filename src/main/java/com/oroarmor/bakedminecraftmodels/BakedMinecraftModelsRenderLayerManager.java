@@ -29,19 +29,16 @@ import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassA
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderPhaseShaderAccessor;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.render.*;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 
 public class BakedMinecraftModelsRenderLayerManager {
     private static final Map<RenderLayer, RenderLayer> dumbToSmart = new Object2ObjectOpenHashMap<>();
-    private static final Set<RenderLayer> smartRenderLayers = new ObjectOpenHashSet<>();
+    private static Map<Shader, Shader> SHADER_CONVERSION_MAP;
 
     @SuppressWarnings("ConstantConditions")
     public static RenderLayer tryDeriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
@@ -67,12 +64,18 @@ public class BakedMinecraftModelsRenderLayerManager {
             return null;
         }
 
-        Shader convertedShader = tryGetSmartShader(dumbShader);
+        if (SHADER_CONVERSION_MAP == null) {
+            SHADER_CONVERSION_MAP = Map.of(
+                    GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL
+            );
+        }
+
+        Shader convertedShader = SHADER_CONVERSION_MAP.get(dumbShader);
         if (convertedShader == null) {
             return null;
         }
 
-        RenderLayer smartRenderLayer = dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
+        return dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
 
             RenderLayerAccessor dumbRenderLayerAccessor = ((RenderLayerAccessor) _dumbRenderLayer);
 
@@ -117,27 +120,9 @@ public class BakedMinecraftModelsRenderLayerManager {
                 }
             };
         });
-
-        smartRenderLayers.add(smartRenderLayer);
-
-        return smartRenderLayer;
     }
 
     public static boolean isSmartRenderLayer(RenderLayer renderLayer) {
         return dumbToSmart.containsKey(renderLayer);
-    }
-
-    private static Map<Shader, Shader> SHADER_CONVERSION_MAP;
-
-    private static Shader tryGetSmartShader(Shader originalShader) {
-        if (originalShader == null) return null;
-
-        if (SHADER_CONVERSION_MAP == null) {
-            SHADER_CONVERSION_MAP = Map.of(
-                    GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL
-            );
-        }
-
-        return SHADER_CONVERSION_MAP.get(originalShader);
     }
 }
