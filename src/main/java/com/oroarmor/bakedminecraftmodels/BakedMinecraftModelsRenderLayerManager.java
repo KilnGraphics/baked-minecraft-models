@@ -121,8 +121,4 @@ public class BakedMinecraftModelsRenderLayerManager {
             };
         });
     }
-
-    public static boolean isSmartRenderLayer(RenderLayer renderLayer) {
-        return dumbToSmart.containsKey(renderLayer);
-    }
 }
