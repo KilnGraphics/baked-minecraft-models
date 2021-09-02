@@ -25,14 +25,8 @@
 package com.oroarmor.bakedminecraftmodels.model;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsVertexFormats;
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
 import com.oroarmor.bakedminecraftmodels.data.BakingData;
-import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
-import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
-import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
 import net.minecraft.client.render.BufferBuilder;
@@ -96,22 +90,10 @@ public class GlobalModelUtils {
         );
     }
 
-    public static BufferBuilder getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
+    public static VertexConsumer getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
         return consumer instanceof SpriteTexturedVertexConsumer ?
                 (BufferBuilder) ((SpriteTexturedVertexConsumerAccessor) consumer).getParent() :
-                (BufferBuilder) consumer;
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    public static boolean isSmartBufferBuilder(BufferBuilder nestedBuilder) {
-        if (((BufferBuilderAccessor) nestedBuilder).getFormat().equals(BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT)) {
-            if (nestedBuilder instanceof RenderLayerCreatedVertexConsumer renderLayerCreatedVertexConsumer) {
-                if (renderLayerCreatedVertexConsumer.getRenderLayer() instanceof MultiPhaseRenderPassAccessor multiPhaseRenderPassAccessor) {
-                    return ((MultiPhaseParametersAccessor) (Object) multiPhaseRenderPassAccessor.getPhases()).getShader().equals(BakedMinecraftModelsRenderLayerManager.SMART_ENTITY_CUTOUT_NO_CULL_PHASE);
-                }
-            }
-        }
-        return false;
+                consumer;
     }
 
 }

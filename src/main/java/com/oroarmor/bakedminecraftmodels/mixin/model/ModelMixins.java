@@ -24,14 +24,15 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.model;
 
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.data.ModelInstanceData;
 import com.oroarmor.bakedminecraftmodels.data.ModelType;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
+import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
-import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
 import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
@@ -83,17 +84,23 @@ public abstract class ModelMixins implements VboBackedModel {
     private boolean bmm$currentPassBakeable;
 
     @Unique
-    private BufferBuilder bmm$currentPassNestedBuilder;
+    private SmartBufferBuilderWrapper bmm$currentPassNestedConsumer;
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        bmm$currentPassNestedBuilder = GlobalModelUtils.getNestedBufferBuilder(vertexConsumer);
-        bmm$currentPassBakeable = GlobalModelUtils.isSmartBufferBuilder(bmm$currentPassNestedBuilder) && MinecraftClient.getInstance().getWindow() != null;
-        if (bmm$currentPassBakeable) {
-            GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
-            GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer());
-            GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
-            GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
+        if (GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof SmartBufferBuilderWrapper smartBufferBuilderWrapper) {
+            bmm$currentPassNestedConsumer = smartBufferBuilderWrapper;
+            RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(bmm$currentPassNestedConsumer.getRenderLayer());
+            bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
+            if (bmm$currentPassBakeable) {
+                GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(convertedRenderLayer);
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
+            }
+        } else {
+            bmm$currentPassNestedConsumer = null;
+            bmm$currentPassBakeable = false;
         }
     }
 
@@ -110,9 +117,9 @@ public abstract class ModelMixins implements VboBackedModel {
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
 //            ((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer().draw(bmm$currentPassNestedBuilder, 0, 0, 0);
-            bmm$currentPassNestedBuilder.end(); // FIXME: this is weird
+            bmm$currentPassNestedConsumer.end(); // FIXME: this is weird
             setBakedVertices(new VertexBuffer());
-            getBakedVertices().upload(bmm$currentPassNestedBuilder);
+            getBakedVertices().upload(bmm$currentPassNestedConsumer.getInternalBufferBuilder());
         }
     }
 

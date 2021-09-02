@@ -27,11 +27,11 @@ package com.oroarmor.bakedminecraftmodels.mixin.model;
 import com.oroarmor.bakedminecraftmodels.access.BakeablePart;
 import com.oroarmor.bakedminecraftmodels.data.MatrixList;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -39,8 +39,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.List;
 
 @Mixin(ModelPart.class)
 public abstract class ModelPartMixin implements BakeablePart {
@@ -55,10 +53,6 @@ public abstract class ModelPartMixin implements BakeablePart {
     private boolean bmm$rotateOnly;
 
     @Shadow
-    @Final
-    private List<ModelPart.Cuboid> cuboids;
-
-    @Shadow
     public boolean visible;
 
     @Shadow protected abstract void renderCuboids(MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha);
@@ -66,7 +60,6 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Override
     public void setId(int id) {
         bmm$id = id;
-        cuboids.forEach(cuboid -> ((BakeablePart) cuboid).setId(bmm$id));
     }
 
     @Override
@@ -87,13 +80,14 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
     public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         bmm$rotateOnly = vertexConsumer == null;
-        bmm$usingSmartRenderer = (bmm$rotateOnly || GlobalModelUtils.isSmartBufferBuilder(GlobalModelUtils.getNestedBufferBuilder(vertexConsumer))) && MinecraftClient.getInstance().getWindow() != null;
+        bmm$usingSmartRenderer = (bmm$rotateOnly || vertexConsumer instanceof SmartBufferBuilderWrapper) && MinecraftClient.getInstance().getWindow() != null;
     }
 
     @Redirect(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelPart;renderCuboids(Lnet/minecraft/client/util/math/MatrixStack$Entry;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V"))
     public void forceRotateOrChangeMatrixStack(ModelPart modelPart, MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
         if (bmm$usingSmartRenderer) {
             if (!bmm$rotateOnly) {
+                ((SmartBufferBuilderWrapper) vertexConsumer).setId(this.getId());
                 this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
             }
         } else {

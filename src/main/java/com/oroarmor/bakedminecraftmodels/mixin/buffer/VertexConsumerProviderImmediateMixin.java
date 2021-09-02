@@ -24,23 +24,21 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
-import com.oroarmor.bakedminecraftmodels.access.RenderLayerCreatedVertexConsumer;
-import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
+import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
+import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-
 @Mixin(VertexConsumerProvider.Immediate.class)
 public abstract class VertexConsumerProviderImmediateMixin {
-    @Inject(method = "getBuffer", at = @At("RETURN"))
+    @Inject(method = "getBuffer", at = @At("RETURN"), cancellable = true)
     private void attachRenderLayerToBuffer(RenderLayer renderLayer, CallbackInfoReturnable<VertexConsumer> cir) {
-        BufferBuilder builder = GlobalModelUtils.getNestedBufferBuilder(cir.getReturnValue()); // TODO: I don't think this conversion is necessary
-        ((RenderLayerCreatedVertexConsumer) builder).setRenderLayer(renderLayer);
+        if(BakedMinecraftModelsRenderLayerManager.isSmartRenderLayer(renderLayer)) cir.setReturnValue(new SmartBufferBuilderWrapper((BufferBuilder) cir.getReturnValue(), renderLayer));
     }
 }

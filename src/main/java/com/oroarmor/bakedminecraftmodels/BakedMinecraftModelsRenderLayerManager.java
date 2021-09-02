@@ -24,22 +24,24 @@
 
 package com.oroarmor.bakedminecraftmodels;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.VertexFormats;
+import com.oroarmor.bakedminecraftmodels.mixin.renderlayer.RenderPhaseShaderAccessor;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.client.render.*;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPhase;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
 
 public class BakedMinecraftModelsRenderLayerManager {
-    private static final Map<RenderLayer, RenderLayer> dumbToSmart = new HashMap<>();
-    public static final RenderPhase.Shader SMART_ENTITY_CUTOUT_NO_CULL_PHASE = new RenderPhase.Shader(() -> BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL);
+    private static final Map<RenderLayer, RenderLayer> dumbToSmart = new Object2ObjectOpenHashMap<>();
+    private static final Set<RenderLayer> smartRenderLayers = new ObjectOpenHashSet<>();
 
     @SuppressWarnings("ConstantConditions")
     public static RenderLayer tryDeriveSmartRenderLayer(@Nullable RenderLayer dumbRenderLayer) {
@@ -47,14 +49,32 @@ public class BakedMinecraftModelsRenderLayerManager {
             return null;
         }
 
-        if (!dumbRenderLayer.getVertexFormat().equals(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)) {
-            return dumbRenderLayer;
+        MultiPhaseParametersAccessor dumbMultiPhaseParameters;
+        if (dumbRenderLayer instanceof MultiPhaseRenderPassAccessor dumbMultiPhaseRenderPass) {
+            dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) dumbMultiPhaseRenderPass.getPhases());
+        } else {
+            return null;
         }
 
-        return dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
+        Optional<Supplier<Shader>> possibleSupplier = ((RenderPhaseShaderAccessor) dumbMultiPhaseParameters.getShader()).getSupplier();
+        Shader dumbShader;
+        if (possibleSupplier.isPresent()) {
+            dumbShader = possibleSupplier.get().get();
+            if (dumbShader == null) {
+                return null;
+            }
+        } else {
+            return null;
+        }
 
-            RenderLayerAccessor dumbMultiPhaseRenderPass = ((RenderLayerAccessor) _dumbRenderLayer);
-            MultiPhaseParametersAccessor dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) dumbMultiPhaseRenderPass).getPhases());
+        Shader convertedShader = tryGetSmartShader(dumbShader);
+        if (convertedShader == null) {
+            return null;
+        }
+
+        RenderLayer smartRenderLayer = dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
+
+            RenderLayerAccessor dumbRenderLayerAccessor = ((RenderLayerAccessor) _dumbRenderLayer);
 
             RenderLayer.MultiPhaseParameters phaseParameters = RenderLayer.MultiPhaseParameters.builder()
                     .cull(dumbMultiPhaseParameters.getCull())
@@ -64,7 +84,7 @@ public class BakedMinecraftModelsRenderLayerManager {
                     .lineWidth(dumbMultiPhaseParameters.getLineWidth())
                     .overlay(dumbMultiPhaseParameters.getOverlay())
                     // TODO: actually check the renderlayer to determine the shader, not a huge issue right now, but will cause issues later
-                    .shader(SMART_ENTITY_CUTOUT_NO_CULL_PHASE)
+                    .shader(new RenderPhase.Shader(() -> convertedShader))
                     .target(dumbMultiPhaseParameters.getTarget())
                     .texture(dumbMultiPhaseParameters.getTexture())
                     .texturing(dumbMultiPhaseParameters.getTexturing())
@@ -73,12 +93,12 @@ public class BakedMinecraftModelsRenderLayerManager {
                     .build(dumbMultiPhaseParameters.getOutlineMode());
 
             return new RenderLayer.MultiPhase(
-                    dumbMultiPhaseRenderPass.getName(),
-                    BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT,
+                    dumbRenderLayerAccessor.getName(),
+                    convertedShader.getFormat(),
                     _dumbRenderLayer.getDrawMode(),
                     _dumbRenderLayer.getExpectedBufferSize(),
-                    dumbMultiPhaseRenderPass.getHasCrumbling(),
-                    dumbMultiPhaseRenderPass.getTranslucent(),
+                    dumbRenderLayerAccessor.getHasCrumbling(),
+                    dumbRenderLayerAccessor.getTranslucent(),
                     phaseParameters
             ) {
                 /**
@@ -97,5 +117,27 @@ public class BakedMinecraftModelsRenderLayerManager {
                 }
             };
         });
+
+        smartRenderLayers.add(smartRenderLayer);
+
+        return smartRenderLayer;
+    }
+
+    public static boolean isSmartRenderLayer(RenderLayer renderLayer) {
+        return dumbToSmart.containsKey(renderLayer);
+    }
+
+    private static Map<Shader, Shader> SHADER_CONVERSION_MAP;
+
+    private static Shader tryGetSmartShader(Shader originalShader) {
+        if (originalShader == null) return null;
+
+        if (SHADER_CONVERSION_MAP == null) {
+            SHADER_CONVERSION_MAP = Map.of(
+                    GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL
+            );
+        }
+
+        return SHADER_CONVERSION_MAP.get(originalShader);
     }
 }
