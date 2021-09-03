@@ -2,7 +2,6 @@ package com.oroarmor.bakedminecraftmodels.vertex;
 
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 

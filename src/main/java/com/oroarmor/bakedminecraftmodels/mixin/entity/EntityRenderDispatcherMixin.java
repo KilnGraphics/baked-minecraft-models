@@ -53,12 +53,6 @@ import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 @Mixin(EntityRenderDispatcher.class)
 public abstract class EntityRenderDispatcherMixin implements InstancedRenderDispatcher {
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/EntityRenderer;render(Lnet/minecraft/entity/Entity;FFLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", shift = At.Shift.AFTER), cancellable = true)
-    private <E extends Entity> void queueRender(E entity, double x, double y, double z, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        matrices.pop();
-        ci.cancel();
-    }
-
     public void renderQueues() {
         int instanceOffset = 0;
 

@@ -24,10 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.mixin.buffer;
 
-import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.vertex.RenderLayerContainer;
-import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
-import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
