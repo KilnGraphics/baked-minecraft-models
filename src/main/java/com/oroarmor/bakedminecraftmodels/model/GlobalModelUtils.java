@@ -41,8 +41,8 @@ import org.lwjgl.system.MemoryUtil;
 
 public class GlobalModelUtils {
 
-    public static final int MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (4 * Float.BYTES);
-    public static final int PART_STRUCT_SIZE = 16 * Float.BYTES;
+    public static final long MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (3 * Float.BYTES) + Integer.BYTES;
+    public static final long PART_STRUCT_SIZE = 16 * Float.BYTES;
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
 
@@ -86,7 +86,7 @@ public class GlobalModelUtils {
         long fullSize = ssboSize * GlobalModelUtils.BUFFER_SECTIONS;
         ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, GlobalModelUtils.BUFFER_CREATION_FLAGS);
         return new SectionedPbo(
-                GL30C.glMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, GlobalModelUtils.BUFFER_MAP_FLAGS),
+                GL30C.nglMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, GlobalModelUtils.BUFFER_MAP_FLAGS),
                 name,
                 GlobalModelUtils.BUFFER_SECTIONS,
                 ssboSize

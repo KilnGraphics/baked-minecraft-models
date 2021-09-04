@@ -24,25 +24,25 @@
 
 package com.oroarmor.bakedminecraftmodels.ssbo;
 
-import java.nio.ByteBuffer;
-
 public class SectionedPbo {
-    private final ByteBuffer pointer;
+    private final long pointer;
     private final int name;
     private final int sectionCount;
     private final long sectionSize;
 
     private int currentSection = 0;
+    private long sectionOffset = 0;
+    private long positionOffset = 0;
 
-    public SectionedPbo(ByteBuffer pointer, int name, int sectionCount, long sectionSize) {
+    public SectionedPbo(long pointer, int name, int sectionCount, long sectionSize) {
         this.pointer = pointer;
         this.name = name;
         this.sectionCount = sectionCount;
         this.sectionSize = sectionSize;
     }
 
-    public ByteBuffer getPointer() {
-        return pointer;
+    public long getPointer() {
+        return pointer + sectionOffset + positionOffset;
     }
 
     public int getName() {
@@ -60,7 +60,16 @@ public class SectionedPbo {
     public void nextSection() {
         currentSection++;
         currentSection %= sectionCount;
-        pointer.position((int) (getCurrentSection() * getSectionSize()));
+        sectionOffset = getCurrentSection() * getSectionSize();
+        positionOffset = 0;
+    }
+
+    public void addPositionOffset(long positionOffset) {
+        this.positionOffset += positionOffset;
+    }
+
+    public long getPositionOffset() {
+        return positionOffset;
     }
 
 }

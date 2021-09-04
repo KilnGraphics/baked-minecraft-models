@@ -28,8 +28,7 @@ import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
-
-import java.nio.ByteBuffer;
+import org.lwjgl.system.MemoryUtil;
 
 public class ModelInstanceData {
 
@@ -112,44 +111,55 @@ public class ModelInstanceData {
         if (!overlaySet) throw new IllegalStateException("Overlay uvs variable not set");
         if (!lightSet) throw new IllegalStateException("Light uvs variable not set");
 
-        ByteBuffer modelPboPointer = modelPbo.getPointer();
-        ByteBuffer partPboPointer = partPbo.getPointer();
-        modelPboPointer.putFloat(red);
-        modelPboPointer.putFloat(green);
-        modelPboPointer.putFloat(blue);
-        modelPboPointer.putFloat(alpha);
-        modelPboPointer.putInt(overlayX);
-        modelPboPointer.putInt(overlayY);
-        modelPboPointer.putInt(lightX);
-        modelPboPointer.putInt(lightY);
-        modelPboPointer.position(modelPboPointer.position() + 12);
-        modelPboPointer.putInt((partPboPointer.position() - (int) (partPbo.getCurrentSection() * partPbo.getSectionSize())) / GlobalModelUtils.PART_STRUCT_SIZE);
+        long modelPboPointer = modelPbo.getPointer();
+        long partPboPointer = partPbo.getPointer();
+        MemoryUtil.memPutFloat(modelPboPointer, red);
+        MemoryUtil.memPutFloat(modelPboPointer + 4, green);
+        MemoryUtil.memPutFloat(modelPboPointer + 8, blue);
+        MemoryUtil.memPutFloat(modelPboPointer + 12, alpha);
+        MemoryUtil.memPutInt(modelPboPointer + 16, overlayX);
+        MemoryUtil.memPutInt(modelPboPointer + 20, overlayY);
+        MemoryUtil.memPutInt(modelPboPointer + 24, lightX);
+        MemoryUtil.memPutInt(modelPboPointer + 28, lightY);
+        // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
+        MemoryUtil.memPutInt(modelPboPointer + 44, (int) (partPbo.getPositionOffset() / GlobalModelUtils.PART_STRUCT_SIZE));
+        modelPbo.addPositionOffset(GlobalModelUtils.MODEL_STRUCT_SIZE);
 
-        int currentPos = partPboPointer.position();
         int matrixCount = modelViewMatrixList.getLargestIndex() + 1;
         boolean[] indexWrittenArray = new boolean[matrixCount];
         MatrixList.Node currentNode;
         while ((currentNode = modelViewMatrixList.next()) != null) {
             int idx = currentNode.getIndex();
             indexWrittenArray[idx] = true;
-            writeMatrix4f(partPboPointer, currentNode.getMatrix(), currentPos + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+            writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
         }
 
         for (int idx = 0; idx < indexWrittenArray.length; idx++) {
             if (!indexWrittenArray[idx]) {
-                writeMatrix4f(partPboPointer, baseModelViewMatrix, currentPos + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+                writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseModelViewMatrix);
             }
         }
         modelViewMatrixList.reset();
-        partPboPointer.position(currentPos + matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
+        partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
     }
 
-    private void writeMatrix4f(ByteBuffer buffer, Matrix4f matrix, int position) {
-        buffer.position(position);
-        buffer.putFloat(matrix.a00).putFloat(matrix.a10).putFloat(matrix.a20).putFloat(matrix.a30)
-                .putFloat(matrix.a01).putFloat(matrix.a11).putFloat(matrix.a21).putFloat(matrix.a31)
-                .putFloat(matrix.a02).putFloat(matrix.a12).putFloat(matrix.a22).putFloat(matrix.a32)
-                .putFloat(matrix.a03).putFloat(matrix.a13).putFloat(matrix.a23).putFloat(matrix.a33);
+    private void writeMatrix4f(long pointer, Matrix4f matrix) {
+        MemoryUtil.memPutFloat(pointer, matrix.a00);
+        MemoryUtil.memPutFloat(pointer + 4, matrix.a10);
+        MemoryUtil.memPutFloat(pointer + 8, matrix.a20);
+        MemoryUtil.memPutFloat(pointer + 12, matrix.a30);
+        MemoryUtil.memPutFloat(pointer + 16, matrix.a01);
+        MemoryUtil.memPutFloat(pointer + 20, matrix.a11);
+        MemoryUtil.memPutFloat(pointer + 24, matrix.a21);
+        MemoryUtil.memPutFloat(pointer + 28, matrix.a31);
+        MemoryUtil.memPutFloat(pointer + 32, matrix.a02);
+        MemoryUtil.memPutFloat(pointer + 36, matrix.a12);
+        MemoryUtil.memPutFloat(pointer + 40, matrix.a22);
+        MemoryUtil.memPutFloat(pointer + 44, matrix.a32);
+        MemoryUtil.memPutFloat(pointer + 48, matrix.a03);
+        MemoryUtil.memPutFloat(pointer + 52, matrix.a13);
+        MemoryUtil.memPutFloat(pointer + 56, matrix.a23);
+        MemoryUtil.memPutFloat(pointer + 60, matrix.a33);
     }
 
 }
