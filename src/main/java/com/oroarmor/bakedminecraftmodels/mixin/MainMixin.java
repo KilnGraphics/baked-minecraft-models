@@ -18,15 +18,33 @@ public class MainMixin {
     @Overwrite
     public static void main(String[] args) {
         long pointer = MemoryUtil.nmemAlloc(64 * 10000000);
-        long offset = 0;
         Matrix4f swagMatrix = Matrix4f.projectionMatrix(342,234,234,34,34,234);
-        UnsafeUtil.writeMatrix4fUnsafe(pointer + offset, swagMatrix);
-        long t1 = System.nanoTime();
+        long offset, t1, t2;
+
+        offset = 0;
+        for (; offset < 64 * 10000000; offset += 64) {
+            ModelInstanceData.writeMatrix4f(pointer + offset, swagMatrix);
+        }
+        offset = 0;
+        t1 = System.nanoTime();
+        for (; offset < 64 * 10000000; offset += 64) {
+            ModelInstanceData.writeMatrix4f(pointer + offset, swagMatrix);
+        }
+        t2 = System.nanoTime();
+        System.out.println(t2 - t1 + " nanos normal");
+
+        offset = 0;
         for (; offset < 64 * 10000000; offset += 64) {
             UnsafeUtil.writeMatrix4fUnsafe(pointer + offset, swagMatrix);
         }
-        long t2 = System.nanoTime();
-        System.out.println(t2 - t1 + " nanos");
+        offset = 0;
+        t1 = System.nanoTime();
+        for (; offset < 64 * 10000000; offset += 64) {
+            UnsafeUtil.writeMatrix4fUnsafe(pointer + offset, swagMatrix);
+        }
+        t2 = System.nanoTime();
+        System.out.println(t2 - t1 + " nanos normalLongs");
+
         MemoryUtil.nmemFree(pointer);
     }
 }
