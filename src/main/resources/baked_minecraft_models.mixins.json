@@ -3,12 +3,14 @@
   "minVersion": "0.8",
   "package": "com.oroarmor.bakedminecraftmodels.mixin",
   "compatibilityLevel": "JAVA_16",
+  "plugin": "com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsMixinPlugin",
   "mixins": [
+    "MainMixin"
   ],
   "client": [
-    "renderlayer.BufferBuilderMixin",
     "GameRendererMixin",
     "GlUniformMixin",
+    "Matrix4fDummyMixin",
     "WorldRendererMixin",
     "buffer.BufferBuilderAccessor",
     "buffer.SpriteTexturedVertexConsumerAccessor",
@@ -18,6 +20,7 @@
     "model.ModelMixins",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",
+    "renderlayer.BufferBuilderMixin",
     "renderlayer.MultiPhaseParametersAccessor",
     "renderlayer.MultiPhaseRenderPassAccessor",
     "renderlayer.RenderLayerAccessor",

@@ -131,19 +131,20 @@ public class ModelInstanceData {
         while ((currentNode = modelViewMatrixList.next()) != null) {
             int idx = currentNode.getIndex();
             indexWrittenArray[idx] = true;
-            writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
+            UnsafeUtil.writeMatrix4fUnsafe(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
+            //writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
         }
 
         for (int idx = 0; idx < indexWrittenArray.length; idx++) {
             if (!indexWrittenArray[idx]) {
-                writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseModelViewMatrix);
+                UnsafeUtil.writeMatrix4fUnsafe(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseModelViewMatrix);
             }
         }
         modelViewMatrixList.reset();
         partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
     }
 
-    private void writeMatrix4f(long pointer, Matrix4f matrix) {
+    public static void writeMatrix4f(long pointer, Matrix4f matrix) {
         MemoryUtil.memPutFloat(pointer, matrix.a00);
         MemoryUtil.memPutFloat(pointer + 4, matrix.a10);
         MemoryUtil.memPutFloat(pointer + 8, matrix.a20);
