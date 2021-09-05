@@ -59,7 +59,7 @@ public class UnsafeUtil {
     }
 
     // returns true if successful. if false, use a fallback function
-    public static boolean writeMatrix4fUnsafe(long pointer, Matrix4f matrix) {
+    public static boolean writeMatrix4fUnsafer(long pointer, Matrix4f matrix) {
         if (MATRIX4F_A00_FIELD_OFFSET != -1) {
             try {
                 COPY_MEMORY_HANDLE.invokeExact(INTERNAL_UNSAFE, matrix, MATRIX4F_A00_FIELD_OFFSET, null, pointer, 16L * Float.BYTES);
@@ -68,7 +68,21 @@ public class UnsafeUtil {
             }
             return true;
         }
+        return false;
+    }
 
+    public static boolean writeMatrix4fUnsafe(long pointer, Matrix4f matrix) {
+        if (MATRIX4F_A00_FIELD_OFFSET != -1) {
+            UNSAFE.putLong(pointer, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET));
+            UNSAFE.putLong(pointer + 8, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 8));
+            UNSAFE.putLong(pointer + 16, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 16));
+            UNSAFE.putLong(pointer + 24, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 24));
+            UNSAFE.putLong(pointer + 32, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 32));
+            UNSAFE.putLong(pointer + 40, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 40));
+            UNSAFE.putLong(pointer + 48, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 48));
+            UNSAFE.putLong(pointer + 56, UNSAFE.getLong(matrix, MATRIX4F_A00_FIELD_OFFSET + 56));
+            return true;
+        }
         return false;
     }
 }
