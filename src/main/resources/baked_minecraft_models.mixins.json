@@ -5,9 +5,9 @@
   "compatibilityLevel": "JAVA_16",
   "plugin": "com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsMixinPlugin",
   "mixins": [
-    "MainMixin"
   ],
   "client": [
+    "MainMixin",
     "GameRendererMixin",
     "GlUniformMixin",
     "Matrix4fDummyMixin",
