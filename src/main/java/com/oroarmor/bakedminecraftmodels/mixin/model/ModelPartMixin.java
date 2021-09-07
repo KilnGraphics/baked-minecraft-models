@@ -32,6 +32,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix3f;
+import net.minecraft.util.math.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -57,6 +59,14 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Shadow protected abstract void renderCuboids(MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha);
 
+    @Shadow public float roll;
+
+    @Shadow public float pitch;
+
+    @Shadow public float yaw;
+
+    @Shadow public abstract boolean isEmpty();
+
     @Override
     public void setId(int id) {
         bmm$id = id;
@@ -67,13 +77,49 @@ public abstract class ModelPartMixin implements BakeablePart {
         return bmm$id;
     }
 
-    @Inject(method = "rotate", at = @At("TAIL"))
+    @Inject(method = "rotate", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/util/math/MatrixStack;translate(DDD)V", shift = At.Shift.AFTER), cancellable = true)
     public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
+            MatrixStack.Entry currentStackEntry = matrices.peek();
+            Matrix4f model = currentStackEntry.getModel();
+
+            float sx = (float) Math.sin(roll);
+            float cx = (float) Math.cos(roll);
+            float sy = (float) Math.sin(pitch);
+            float cy = (float) Math.cos(pitch);
+            float sz = (float) Math.sin(yaw);
+            float cz = (float) Math.cos(yaw);
+
+            Matrix4f rotMat = new Matrix4f();
+            rotMat.a00 = cy * cz;
+            rotMat.a01 = (sx * sy * cz) - (cx * sz);
+            rotMat.a02 = (cx * sy * sz) - (sx * cz);
+            rotMat.a10 = cy * sz;
+            rotMat.a11 = (sx * sy * sz) + (cx * cz);
+            rotMat.a12 = rotMat.a02;
+            rotMat.a20 = -sy;
+            rotMat.a21 = sx * cy;
+            rotMat.a22 = cx * cy;
+            rotMat.a33 = 1.0F;
+
+            model.multiply(rotMat);
+
+            Matrix3f normal = currentStackEntry.getNormal();
+            normal.a00 = model.a00;
+            normal.a01 = model.a01;
+            normal.a02 = model.a02;
+            normal.a10 = model.a10;
+            normal.a11 = model.a11;
+            normal.a12 = model.a12;
+            normal.a20 = model.a20;
+            normal.a21 = model.a21;
+            normal.a22 = model.a22;
+
             MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrixList();
             if (this.visible) {
-                matrixList.add(bmm$id, matrices.peek().getModel());
+                matrixList.add(bmm$id, model);
             }
+            ci.cancel();
         }
     }
 
