@@ -83,20 +83,20 @@ public abstract class ModelPartMixin implements BakeablePart {
             MatrixStack.Entry currentStackEntry = matrices.peek();
             Matrix4f model = currentStackEntry.getModel();
 
-            float sx = (float) Math.sin(roll);
-            float cx = (float) Math.cos(roll);
-            float sy = (float) Math.sin(pitch);
-            float cy = (float) Math.cos(pitch);
-            float sz = (float) Math.sin(yaw);
-            float cz = (float) Math.cos(yaw);
+            float sx = (float) Math.sin(pitch);
+            float cx = (float) Math.cos(pitch);
+            float sy = (float) Math.sin(yaw);
+            float cy = (float) Math.cos(yaw);
+            float sz = (float) Math.sin(roll);
+            float cz = (float) Math.cos(roll);
 
             Matrix4f rotMat = new Matrix4f();
             rotMat.a00 = cy * cz;
             rotMat.a01 = (sx * sy * cz) - (cx * sz);
-            rotMat.a02 = (cx * sy * sz) - (sx * cz);
+            rotMat.a02 = (cx * sy * cz) + (sx * sz);
             rotMat.a10 = cy * sz;
             rotMat.a11 = (sx * sy * sz) + (cx * cz);
-            rotMat.a12 = rotMat.a02;
+            rotMat.a12 = (cx * sy * sz) - (sx * cz);
             rotMat.a20 = -sy;
             rotMat.a21 = sx * cy;
             rotMat.a22 = cx * cy;
