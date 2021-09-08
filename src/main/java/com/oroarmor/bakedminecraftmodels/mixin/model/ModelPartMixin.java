@@ -112,29 +112,19 @@ public abstract class ModelPartMixin implements BakeablePart {
             float new31 = model.a30 * rot01 + model.a31 * rot11 + model.a32 * rot21;
             float new32 = model.a30 * rot02 + model.a31 * rot12 + model.a32 * rot22;
 
-            model.a00 = new00;
-            model.a01 = new01;
-            model.a02 = new02;
-            model.a10 = new10;
-            model.a11 = new11;
-            model.a12 = new12;
-            model.a20 = new20;
-            model.a21 = new21;
-            model.a22 = new22;
+            Matrix3f normal = currentStackEntry.getNormal();
+            model.a00 = normal.a00 = new00;
+            model.a01 = normal.a01 = new01;
+            model.a02 = normal.a02 = new02;
+            model.a10 = normal.a10 = new10;
+            model.a11 = normal.a11 = new11;
+            model.a12 = normal.a12 = new12;
+            model.a20 = normal.a20 = new20;
+            model.a21 = normal.a21 = new21;
+            model.a22 = normal.a22 = new22;
             model.a30 = new30;
             model.a31 = new31;
             model.a32 = new32;
-
-            Matrix3f normal = currentStackEntry.getNormal();
-            normal.a00 = new00;
-            normal.a01 = new01;
-            normal.a02 = new02;
-            normal.a10 = new10;
-            normal.a11 = new11;
-            normal.a12 = new12;
-            normal.a20 = new20;
-            normal.a21 = new21;
-            normal.a22 = new22;
 
             MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrixList();
             if (this.visible) {
