@@ -32,6 +32,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
@@ -83,12 +84,12 @@ public abstract class ModelPartMixin implements BakeablePart {
             MatrixStack.Entry currentStackEntry = matrices.peek();
             Matrix4f model = currentStackEntry.getModel();
 
-            float sx = (float) Math.sin(pitch);
-            float cx = (float) Math.cos(pitch);
-            float sy = (float) Math.sin(yaw);
-            float cy = (float) Math.cos(yaw);
-            float sz = (float) Math.sin(roll);
-            float cz = (float) Math.cos(roll);
+            float sx = MathHelper.sin(pitch);
+            float cx = MathHelper.cos(pitch);
+            float sy = MathHelper.sin(yaw);
+            float cy = MathHelper.cos(yaw);
+            float sz = MathHelper.sin(roll);
+            float cz = MathHelper.cos(roll);
 
             Matrix4f rotMat = new Matrix4f();
             rotMat.a00 = cy * cz;
