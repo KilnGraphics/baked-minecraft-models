@@ -66,8 +66,6 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Shadow public float yaw;
 
-    @Shadow public abstract boolean isEmpty();
-
     @Override
     public void setId(int id) {
         bmm$id = id;
@@ -91,30 +89,52 @@ public abstract class ModelPartMixin implements BakeablePart {
             float sz = MathHelper.sin(roll);
             float cz = MathHelper.cos(roll);
 
-            Matrix4f rotMat = new Matrix4f();
-            rotMat.a00 = cy * cz;
-            rotMat.a01 = (sx * sy * cz) - (cx * sz);
-            rotMat.a02 = (cx * sy * cz) + (sx * sz);
-            rotMat.a10 = cy * sz;
-            rotMat.a11 = (sx * sy * sz) + (cx * cz);
-            rotMat.a12 = (cx * sy * sz) - (sx * cz);
-            rotMat.a20 = -sy;
-            rotMat.a21 = sx * cy;
-            rotMat.a22 = cx * cy;
-            rotMat.a33 = 1.0F;
+            float rot00 = cy * cz;
+            float rot01 = (sx * sy * cz) - (cx * sz);
+            float rot02 = (cx * sy * cz) + (sx * sz);
+            float rot10 = cy * sz;
+            float rot11 = (sx * sy * sz) + (cx * cz);
+            float rot12 = (cx * sy * sz) - (sx * cz);
+            float rot20 = -sy;
+            float rot21 = sx * cy;
+            float rot22 = cx * cy;
 
-            model.multiply(rotMat);
+            float new00 = model.a00 * rot00 + model.a01 * rot10 + model.a02 * rot20;
+            float new01 = model.a00 * rot01 + model.a01 * rot11 + model.a02 * rot21;
+            float new02 = model.a00 * rot02 + model.a01 * rot12 + model.a02 * rot22;
+            float new10 = model.a10 * rot00 + model.a11 * rot10 + model.a12 * rot20;
+            float new11 = model.a10 * rot01 + model.a11 * rot11 + model.a12 * rot21;
+            float new12 = model.a10 * rot02 + model.a11 * rot12 + model.a12 * rot22;
+            float new20 = model.a20 * rot00 + model.a21 * rot10 + model.a22 * rot20;
+            float new21 = model.a20 * rot01 + model.a21 * rot11 + model.a22 * rot21;
+            float new22 = model.a20 * rot02 + model.a21 * rot12 + model.a22 * rot22;
+            float new30 = model.a30 * rot00 + model.a31 * rot10 + model.a32 * rot20;
+            float new31 = model.a30 * rot01 + model.a31 * rot11 + model.a32 * rot21;
+            float new32 = model.a30 * rot02 + model.a31 * rot12 + model.a32 * rot22;
+
+            model.a00 = new00;
+            model.a01 = new01;
+            model.a02 = new02;
+            model.a10 = new10;
+            model.a11 = new11;
+            model.a12 = new12;
+            model.a20 = new20;
+            model.a21 = new21;
+            model.a22 = new22;
+            model.a30 = new30;
+            model.a31 = new31;
+            model.a32 = new32;
 
             Matrix3f normal = currentStackEntry.getNormal();
-            normal.a00 = model.a00;
-            normal.a01 = model.a01;
-            normal.a02 = model.a02;
-            normal.a10 = model.a10;
-            normal.a11 = model.a11;
-            normal.a12 = model.a12;
-            normal.a20 = model.a20;
-            normal.a21 = model.a21;
-            normal.a22 = model.a22;
+            normal.a00 = new00;
+            normal.a01 = new01;
+            normal.a02 = new02;
+            normal.a10 = new10;
+            normal.a11 = new11;
+            normal.a12 = new12;
+            normal.a20 = new20;
+            normal.a21 = new21;
+            normal.a22 = new22;
 
             MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrixList();
             if (this.visible) {
