@@ -25,10 +25,8 @@
 package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
-import it.unimi.dsi.fastutil.PriorityQueue;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectArrayFIFOQueue;
 
 import java.util.Collection;
 import java.util.Map;
@@ -61,9 +59,9 @@ public class BakingData {
         currentModelTypeData = null;
     }
 
-    public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
+    public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
         for (ModelTypeData modelTypeData : modelTypeMap.values()) {
-            modelTypeData.writeToPbos(modelPbo, partPbo);
+            modelTypeData.writeToBuffer(modelPbo, partPbo);
         }
     }
 

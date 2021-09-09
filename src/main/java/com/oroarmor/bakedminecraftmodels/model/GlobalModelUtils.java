@@ -27,7 +27,7 @@ package com.oroarmor.bakedminecraftmodels.model;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.oroarmor.bakedminecraftmodels.data.BakingData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
 import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.render.BufferBuilder;
@@ -62,30 +62,30 @@ public class GlobalModelUtils {
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
 
     // TODO: MOVE THESE AS SOON AS POSSIBLE FOR ABSTRACTION!!!
-    private static SectionedPbo PART_PBO;
-    private static SectionedPbo MODEL_PBO;
+    private static SectionedPersistentBuffer PART_PBO;
+    private static SectionedPersistentBuffer MODEL_PBO;
     public static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(GlobalModelUtils.BUFFER_SECTIONS);
 
-    public static SectionedPbo getOrCreatePartPbo() {
+    public static SectionedPersistentBuffer getOrCreatePartPbo() {
         if (PART_PBO == null) {
-            PART_PBO = createSsboPbo(PART_PBO_SIZE);
+            PART_PBO = createSsboPersistentBuffer(PART_PBO_SIZE);
         }
         return PART_PBO;
     }
 
-    public static SectionedPbo getOrCreateModelPbo() {
+    public static SectionedPersistentBuffer getOrCreateModelPbo() {
         if (MODEL_PBO == null) {
-            MODEL_PBO = createSsboPbo(MODEL_PBO_SIZE);
+            MODEL_PBO = createSsboPersistentBuffer(MODEL_PBO_SIZE);
         }
         return MODEL_PBO;
     }
 
-    private static SectionedPbo createSsboPbo(long ssboSize) {
+    private static SectionedPersistentBuffer createSsboPersistentBuffer(long ssboSize) {
         int name = GlStateManager._glGenBuffers();
         GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
         long fullSize = ssboSize * GlobalModelUtils.BUFFER_SECTIONS;
         ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, GlobalModelUtils.BUFFER_CREATION_FLAGS);
-        return new SectionedPbo(
+        return new SectionedPersistentBuffer(
                 GL30C.nglMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, GlobalModelUtils.BUFFER_MAP_FLAGS),
                 name,
                 GlobalModelUtils.BUFFER_SECTIONS,

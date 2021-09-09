@@ -25,7 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
@@ -98,7 +98,7 @@ public class ModelInstanceData {
         }
     }
 
-    public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
+    public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
         if (!colorSet) throw new IllegalStateException("Color variable not set");
         if (!overlaySet) throw new IllegalStateException("Overlay uvs variable not set");
         if (!lightSet) throw new IllegalStateException("Light uvs variable not set");

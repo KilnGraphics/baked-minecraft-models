@@ -24,7 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.ssbo;
 
-public class SectionedPbo {
+public class SectionedPersistentBuffer {
     private final long pointer;
     private final int name;
     private final int sectionCount;
@@ -34,7 +34,7 @@ public class SectionedPbo {
     private long sectionOffset = 0;
     private long positionOffset = 0;
 
-    public SectionedPbo(long pointer, int name, int sectionCount, long sectionSize) {
+    public SectionedPersistentBuffer(long pointer, int name, int sectionCount, long sectionSize) {
         this.pointer = pointer;
         this.name = name;
         this.sectionCount = sectionCount;

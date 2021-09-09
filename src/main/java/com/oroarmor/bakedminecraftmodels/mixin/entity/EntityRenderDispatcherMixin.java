@@ -30,14 +30,12 @@ import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import com.oroarmor.bakedminecraftmodels.data.ModelTypeData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import com.oroarmor.bakedminecraftmodels.model.InstancedRenderDispatcher;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.*;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.Window;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
 import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.GL30C;
 import org.lwjgl.opengl.GL31C;
@@ -45,9 +43,6 @@ import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 
@@ -58,8 +53,8 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
     public void renderQueues() {
         int instanceOffset = 0;
 
-        SectionedPbo partPbo = getOrCreatePartPbo();
-        SectionedPbo modelPbo = getOrCreateModelPbo();
+        SectionedPersistentBuffer partPbo = getOrCreatePartPbo();
+        SectionedPersistentBuffer modelPbo = getOrCreateModelPbo();
 
         long currentPartSyncObject = SYNC_OBJECTS.getCurrentSyncObject();
 
@@ -73,7 +68,7 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
         long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
         long modelSectionStartPos = modelPbo.getCurrentSection() * modelPbo.getSectionSize();
 
-        bakingData.writeToPbos(modelPbo, partPbo);
+        bakingData.writeToBuffer(modelPbo, partPbo);
 
         GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
         GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partPbo.getSectionSize());

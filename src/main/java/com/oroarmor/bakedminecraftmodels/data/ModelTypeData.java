@@ -25,8 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
-import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
-import it.unimi.dsi.fastutil.PriorityQueue;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import net.minecraft.client.render.RenderLayer;
 
 import java.util.LinkedList;
@@ -82,10 +81,10 @@ public class ModelTypeData {
         renderLayer = null;
     }
 
-    public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
+    public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
         if (renderLayer != null) {
             for (ModelInstanceData modelInstanceData : modelInstanceList) {
-                modelInstanceData.writeToPbos(modelPbo, partPbo);
+                modelInstanceData.writeToBuffer(modelPbo, partPbo);
             }
         }
     }
