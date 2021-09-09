@@ -24,6 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.data;
 
+import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPbo;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -34,17 +35,15 @@ import java.util.Map;
 
 public class BakingData {
 
-    private final PriorityQueue<ModelInstanceData> modelInstancePool;
-    private final Map<ModelType, ModelTypeData> modelTypeMap;
+    private final Map<VboBackedModel, ModelTypeData> modelTypeMap;
     private ModelTypeData currentModelTypeData;
 
     public BakingData() {
-        this.modelInstancePool = new ObjectArrayFIFOQueue<>();
         this.modelTypeMap = new Object2ObjectOpenHashMap<>();
     }
 
-    public void tryCreateCurrentModelTypeData(ModelType modelType) {
-        currentModelTypeData = modelTypeMap.computeIfAbsent(modelType, modelType_ -> new ModelTypeData(modelInstancePool, modelType_.model()));
+    public void tryCreateCurrentModelTypeData(VboBackedModel model) {
+        currentModelTypeData = modelTypeMap.computeIfAbsent(model, ModelTypeData::new);
     }
 
     public ModelTypeData getCurrentModelTypeData() {

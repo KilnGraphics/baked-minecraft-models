@@ -98,14 +98,6 @@ public class ModelInstanceData {
         }
     }
 
-    public void reset() {
-        modelViewMatrixList.clear();
-        colorSet = false;
-        overlaySet = false;
-        lightSet = false;
-        baseModelViewMatrix = null;
-    }
-
     public void writeToPbos(SectionedPbo modelPbo, SectionedPbo partPbo) {
         if (!colorSet) throw new IllegalStateException("Color variable not set");
         if (!overlaySet) throw new IllegalStateException("Overlay uvs variable not set");
@@ -143,7 +135,7 @@ public class ModelInstanceData {
         partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
     }
 
-    private void writeMatrix4f(long pointer, Matrix4f matrix) {
+    private static void writeMatrix4f(long pointer, Matrix4f matrix) {
         MemoryUtil.memPutFloat(pointer, matrix.a00);
         MemoryUtil.memPutFloat(pointer + 4, matrix.a10);
         MemoryUtil.memPutFloat(pointer + 8, matrix.a20);

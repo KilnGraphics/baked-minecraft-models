@@ -34,31 +34,19 @@ import java.util.List;
 
 public class ModelTypeData {
 
-    private final PriorityQueue<ModelInstanceData> modelInstancePool;
     private final List<ModelInstanceData> modelInstanceList;
     private final VboBackedModel model;
     private ModelInstanceData currentModelInstanceData;
 
     private RenderLayer renderLayer;
 
-    public ModelTypeData(PriorityQueue<ModelInstanceData> modelInstancePool, VboBackedModel model) {
+    public ModelTypeData(VboBackedModel model) {
         this.model = model;
-        this.modelInstancePool = modelInstancePool;
         this.modelInstanceList = new LinkedList<>();
     }
 
-    private ModelInstanceData getModelInstanceData() {
-        if (!modelInstancePool.isEmpty()) {
-            ModelInstanceData pooledObj = modelInstancePool.dequeue();
-            pooledObj.reset();
-            return pooledObj;
-        } else {
-            return new ModelInstanceData();
-        }
-    }
-
     public void createCurrentModelInstanceData() {
-        currentModelInstanceData = getModelInstanceData();
+        currentModelInstanceData = new ModelInstanceData();
         modelInstanceList.add(currentModelInstanceData);
     }
 
@@ -89,9 +77,6 @@ public class ModelTypeData {
     }
 
     public void reset() {
-        for(ModelInstanceData modelInstanceData : modelInstanceList) {
-            modelInstancePool.enqueue(modelInstanceData);
-        }
         modelInstanceList.clear();
         currentModelInstanceData = null;
         renderLayer = null;

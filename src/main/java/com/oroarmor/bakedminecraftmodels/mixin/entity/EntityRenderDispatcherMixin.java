@@ -44,6 +44,7 @@ import org.lwjgl.opengl.GL31C;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -53,6 +54,7 @@ import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 @Mixin(EntityRenderDispatcher.class)
 public abstract class EntityRenderDispatcherMixin implements InstancedRenderDispatcher {
 
+    @Unique
     public void renderQueues() {
         int instanceOffset = 0;
 

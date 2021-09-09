@@ -26,11 +26,9 @@ package com.oroarmor.bakedminecraftmodels.mixin.model;
 
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import com.oroarmor.bakedminecraftmodels.data.ModelInstanceData;
-import com.oroarmor.bakedminecraftmodels.data.ModelType;
 import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.vertex.RenderLayerContainer;
-import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -94,7 +92,7 @@ public abstract class ModelMixins implements VboBackedModel {
             if (bmm$currentPassBakeable) {
                 bmm$drawMode = convertedRenderLayer.getDrawMode();
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
-                GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(new ModelType(this, null));
+                GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(this);
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(convertedRenderLayer);
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
                 GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());

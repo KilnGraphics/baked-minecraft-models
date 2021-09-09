@@ -6,7 +6,6 @@
   "mixins": [
   ],
   "client": [
-    "renderlayer.BufferBuilderMixin",
     "GameRendererMixin",
     "GlUniformMixin",
     "WorldRendererMixin",
@@ -18,6 +17,7 @@
     "model.ModelMixins",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",
+    "renderlayer.BufferBuilderMixin",
     "renderlayer.MultiPhaseParametersAccessor",
     "renderlayer.MultiPhaseRenderPassAccessor",
     "renderlayer.RenderLayerAccessor",
