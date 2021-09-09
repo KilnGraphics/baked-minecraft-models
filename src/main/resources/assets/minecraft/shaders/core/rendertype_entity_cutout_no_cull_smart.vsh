@@ -1,4 +1,5 @@
-#version 430
+#version 330 core
+#extension GL_ARB_shader_storage_buffer_object : require
 
 #moj_import <light.glsl>
 
@@ -19,7 +20,7 @@ struct ModelPart {
     mat4 modelViewMat;
 };
 
-layout(std430, binding = 1) buffer modelPartsLayout {
+layout(std140, binding = 1) readonly restrict buffer modelPartsLayout {
     ModelPart[] modelParts;
 } modelPartsSsbo;
 
@@ -31,7 +32,7 @@ struct Model {
     uint partOffset;
 };
 
-layout(std430, binding = 2) buffer modelsLayout {
+layout(std140, binding = 2) readonly restrict buffer modelsLayout {
     Model[] models;
 } modelsSsbo;
 
