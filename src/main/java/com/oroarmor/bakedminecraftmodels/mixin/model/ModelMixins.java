@@ -39,9 +39,7 @@ import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
 import net.minecraft.client.util.math.MatrixStack;
 import org.jetbrains.annotations.Nullable;
-import org.spongepowered.asm.mixin.Intrinsic;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -86,19 +84,13 @@ public abstract class ModelMixins implements VboBackedModel {
     private VertexFormat bmm$vertexFormat;
 
     @Unique
-    private VboBackedModel bmm$currentModel;
-
-    @Unique
-    @Intrinsic
-    private VboBackedModel bmm$getParentModel() {
-        return bmm$currentModel;
+    protected boolean bmm$childBakeable() { // this will be overridden by the lowest in the hierarchy as long as it's not private
+        return bmm$currentPassBakeable;
     }
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
-            System.out.println(bmm$getParentModel());
-            bmm$currentModel = this;
+        if (!bmm$childBakeable() && GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
             RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(renderLayerContainer.getRenderLayer());
             bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
             if (bmm$currentPassBakeable) {
