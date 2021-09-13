@@ -24,6 +24,7 @@
 
 package com.oroarmor.bakedminecraftmodels.ssbo;
 
+// TODO: abstract this but still use long for getPointer
 public class SectionedPersistentBuffer {
     private final long pointer;
     private final int name;

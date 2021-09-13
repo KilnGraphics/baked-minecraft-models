@@ -39,6 +39,7 @@ import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
 import net.minecraft.client.util.math.MatrixStack;
 import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Intrinsic;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -84,9 +85,20 @@ public abstract class ModelMixins implements VboBackedModel {
     @Unique
     private VertexFormat bmm$vertexFormat;
 
+    @Unique
+    private VboBackedModel bmm$currentModel;
+
+    @Unique
+    @Intrinsic
+    private VboBackedModel bmm$getParentModel() {
+        return bmm$currentModel;
+    }
+
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
+            System.out.println(bmm$getParentModel());
+            bmm$currentModel = this;
             RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(renderLayerContainer.getRenderLayer());
             bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
             if (bmm$currentPassBakeable) {
@@ -119,8 +131,7 @@ public abstract class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
-//            ((RenderLayerCreatedVertexConsumer) bmm$currentPassNestedBuilder).getRenderLayer().draw(bmm$currentPassNestedBuilder, 0, 0, 0);
-            GlobalModelUtils.VBO_BUFFER_BUILDER.end(); // FIXME: this is weird
+            GlobalModelUtils.VBO_BUFFER_BUILDER.end();
             bmm$bakedVertices = new VertexBuffer();
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
             GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
@@ -134,6 +145,7 @@ public abstract class ModelMixins implements VboBackedModel {
             modelInstanceData.setLight(light);
             modelInstanceData.setOverlay(overlay);
             modelInstanceData.setColor(red, green, blue, alpha);
+            bmm$currentPassBakeable = false; // we want this to be false by default when we start at the top again
         }
     }
 

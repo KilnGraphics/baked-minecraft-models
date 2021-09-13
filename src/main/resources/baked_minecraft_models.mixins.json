@@ -14,7 +14,6 @@
     "buffer.SpriteTexturedVertexConsumerAccessor",
     "buffer.VertexBufferAccessor",
     "buffer.VertexConsumerProviderImmediateMixin",
-    "entity.EntityRenderDispatcherMixin",
     "model.ModelMixins",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",

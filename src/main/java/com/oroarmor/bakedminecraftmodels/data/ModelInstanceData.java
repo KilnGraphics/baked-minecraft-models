@@ -24,11 +24,12 @@
 
 package com.oroarmor.bakedminecraftmodels.data;
 
-import com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
+
+import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 
 public class ModelInstanceData {
 
@@ -98,6 +99,7 @@ public class ModelInstanceData {
         }
     }
 
+    // TODO: abstract this to InstancedRenderDispacher maybe?
     public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
         if (!colorSet) throw new IllegalStateException("Color variable not set");
         if (!overlaySet) throw new IllegalStateException("Overlay uvs variable not set");
@@ -114,8 +116,8 @@ public class ModelInstanceData {
         MemoryUtil.memPutInt(modelPboPointer + 24, lightX);
         MemoryUtil.memPutInt(modelPboPointer + 28, lightY);
         // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
-        MemoryUtil.memPutInt(modelPboPointer + 44, (int) (partPbo.getPositionOffset() / GlobalModelUtils.PART_STRUCT_SIZE));
-        modelPbo.addPositionOffset(GlobalModelUtils.MODEL_STRUCT_SIZE);
+        MemoryUtil.memPutInt(modelPboPointer + 44, (int) (partPbo.getPositionOffset() / PART_STRUCT_SIZE));
+        modelPbo.addPositionOffset(MODEL_STRUCT_SIZE);
 
         int matrixCount = modelViewMatrixList.getLargestIndex() + 1;
         boolean[] indexWrittenArray = new boolean[matrixCount];
@@ -123,16 +125,16 @@ public class ModelInstanceData {
         while ((currentNode = modelViewMatrixList.next()) != null) {
             int idx = currentNode.getIndex();
             indexWrittenArray[idx] = true;
-            writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
+            writeMatrix4f(partPboPointer + idx * PART_STRUCT_SIZE, currentNode.getMatrix());
         }
 
         for (int idx = 0; idx < indexWrittenArray.length; idx++) {
             if (!indexWrittenArray[idx]) {
-                writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseModelViewMatrix);
+                writeMatrix4f(partPboPointer + idx * PART_STRUCT_SIZE, baseModelViewMatrix);
             }
         }
         modelViewMatrixList.reset();
-        partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
+        partPbo.addPositionOffset(matrixCount * PART_STRUCT_SIZE);
     }
 
     private static void writeMatrix4f(long pointer, Matrix4f matrix) {

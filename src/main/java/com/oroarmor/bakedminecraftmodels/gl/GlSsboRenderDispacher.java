@@ -1,28 +1,4 @@
-/*
- * MIT License
- *
- * Copyright (c) 2021 OroArmor (Eli Orona), Blaze4D
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
-package com.oroarmor.bakedminecraftmodels.mixin.entity;
+package com.oroarmor.bakedminecraftmodels.gl;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -31,25 +7,63 @@ import com.oroarmor.bakedminecraftmodels.data.ModelTypeData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import com.oroarmor.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
+import com.oroarmor.bakedminecraftmodels.ssbo.SectionedSyncObjects;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
-import net.minecraft.client.render.*;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.Shader;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.Window;
-import org.lwjgl.opengl.ARBShaderStorageBufferObject;
-import org.lwjgl.opengl.GL30C;
-import org.lwjgl.opengl.GL31C;
-import org.lwjgl.opengl.GL32C;
+import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 
 import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 
-@Mixin(EntityRenderDispatcher.class)
-public abstract class EntityRenderDispatcherMixin implements InstancedRenderDispatcher {
+public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
-    @Unique
+    public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+
+    public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+
+    public static final int BUFFER_SECTIONS = 3;
+
+    public static final int ENTITY_LIMIT = 8192;
+
+    public static final long PART_PBO_SIZE = ENTITY_LIMIT * 16 * PART_STRUCT_SIZE; // assume each entity has on average 16 parts
+    public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * MODEL_STRUCT_SIZE;
+
+    private static SectionedPersistentBuffer PART_PBO;
+    private static SectionedPersistentBuffer MODEL_PBO;
+    public static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(BUFFER_SECTIONS);
+
+    public static SectionedPersistentBuffer getOrCreatePartPbo() {
+        if (PART_PBO == null) {
+            PART_PBO = createSsboPersistentBuffer(PART_PBO_SIZE);
+        }
+        return PART_PBO;
+    }
+
+    public static SectionedPersistentBuffer getOrCreateModelPbo() {
+        if (MODEL_PBO == null) {
+            MODEL_PBO = createSsboPersistentBuffer(MODEL_PBO_SIZE);
+        }
+        return MODEL_PBO;
+    }
+
+    private static SectionedPersistentBuffer createSsboPersistentBuffer(long ssboSize) {
+        int name = GlStateManager._glGenBuffers();
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
+        long fullSize = ssboSize * BUFFER_SECTIONS;
+        ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+        return new SectionedPersistentBuffer(
+                GL30C.nglMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
+                name,
+                BUFFER_SECTIONS,
+                ssboSize
+        );
+    }
+    
     public void renderQueues() {
         int instanceOffset = 0;
 
@@ -174,4 +188,5 @@ public abstract class EntityRenderDispatcherMixin implements InstancedRenderDisp
 
         bakingData.reset();
     }
+    
 }
