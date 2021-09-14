@@ -34,7 +34,7 @@ public class ModelRenderSubtypeData {
         return renderLayer;
     }
 
-    public void reset() {
+    public void reset() { // unused for now
         modelInstanceList.clear();
         currentModelInstanceData = null;
     }

@@ -27,24 +27,30 @@ package com.oroarmor.bakedminecraftmodels.data;
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.render.RenderLayer;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 public class ModelTypeData {
 
-    private final Map<RenderLayer, ModelRenderSubtypeData> modelRenderSubtypeMap;
+    private final List<ModelRenderSubtypeData> orderedSubtypes;
     private final VboBackedModel model;
     private ModelRenderSubtypeData currentSubtypeData;
 
     public ModelTypeData(VboBackedModel model) {
         this.model = model;
-        this.modelRenderSubtypeMap = new Object2ObjectOpenHashMap<>();
+        this.orderedSubtypes = new ObjectArrayList<>();
     }
 
     public void tryCreateCurrentSubtypeData(RenderLayer renderLayer) {
-        currentSubtypeData = modelRenderSubtypeMap.computeIfAbsent(renderLayer, ModelRenderSubtypeData::new);
+        if (currentSubtypeData == null || !currentSubtypeData.getRenderLayer().equals(renderLayer)) {
+            ModelRenderSubtypeData newSubtype = new ModelRenderSubtypeData(renderLayer);
+            currentSubtypeData = newSubtype;
+            orderedSubtypes.add(newSubtype);
+        }
     }
 
     public ModelRenderSubtypeData getCurrentSubtypeData() {
@@ -52,7 +58,7 @@ public class ModelTypeData {
     }
 
     public Collection<ModelRenderSubtypeData> getAllSubtypeData() {
-        return modelRenderSubtypeMap.values();
+        return orderedSubtypes;
     }
 
     public VboBackedModel getModel() {
@@ -60,14 +66,12 @@ public class ModelTypeData {
     }
 
     public void reset() {
-        for (ModelRenderSubtypeData subtype : modelRenderSubtypeMap.values()) {
-            subtype.reset();
-        }
+        orderedSubtypes.clear();
         currentSubtypeData = null;
     }
 
     public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        for (ModelRenderSubtypeData subtype : modelRenderSubtypeMap.values()) {
+        for (ModelRenderSubtypeData subtype : orderedSubtypes) {
             subtype.writeToBuffer(modelPbo, partPbo);
         }
     }
