@@ -26,49 +26,33 @@ package com.oroarmor.bakedminecraftmodels.data;
 
 import com.oroarmor.bakedminecraftmodels.model.VboBackedModel;
 import com.oroarmor.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.client.render.RenderLayer;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Collection;
+import java.util.Map;
 
 public class ModelTypeData {
 
-    private final List<ModelInstanceData> modelInstanceList;
+    private final Map<RenderLayer, ModelRenderSubtypeData> modelRenderSubtypeMap;
     private final VboBackedModel model;
-    private ModelInstanceData currentModelInstanceData;
-
-    private RenderLayer renderLayer;
+    private ModelRenderSubtypeData currentSubtypeData;
 
     public ModelTypeData(VboBackedModel model) {
         this.model = model;
-        this.modelInstanceList = new LinkedList<>();
+        this.modelRenderSubtypeMap = new Object2ObjectOpenHashMap<>();
     }
 
-    public void createCurrentModelInstanceData() {
-        currentModelInstanceData = new ModelInstanceData();
-        modelInstanceList.add(currentModelInstanceData);
+    public void tryCreateCurrentSubtypeData(RenderLayer renderLayer) {
+        currentSubtypeData = modelRenderSubtypeMap.computeIfAbsent(renderLayer, ModelRenderSubtypeData::new);
     }
 
-    public ModelInstanceData getCurrentModelInstanceData() {
-        return currentModelInstanceData;
+    public ModelRenderSubtypeData getCurrentSubtypeData() {
+        return currentSubtypeData;
     }
 
-    public int getInstanceCount() {
-        return modelInstanceList.size();
-    }
-
-    /**
-     * After this is set once, until it's reset, this will ignore any subsequent
-     * calls to this method.
-     */
-    public void setRenderLayer(RenderLayer renderLayer) {
-        if (this.renderLayer == null) {
-            this.renderLayer = renderLayer;
-        }
-    }
-
-    public RenderLayer getRenderLayer() {
-        return renderLayer;
+    public Collection<ModelRenderSubtypeData> getAllSubtypeData() {
+        return modelRenderSubtypeMap.values();
     }
 
     public VboBackedModel getModel() {
@@ -76,16 +60,15 @@ public class ModelTypeData {
     }
 
     public void reset() {
-        modelInstanceList.clear();
-        currentModelInstanceData = null;
-        renderLayer = null;
+        for (ModelRenderSubtypeData subtype : modelRenderSubtypeMap.values()) {
+            subtype.reset();
+        }
+        currentSubtypeData = null;
     }
 
     public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        if (renderLayer != null) {
-            for (ModelInstanceData modelInstanceData : modelInstanceList) {
-                modelInstanceData.writeToBuffer(modelPbo, partPbo);
-            }
+        for (ModelRenderSubtypeData subtype : modelRenderSubtypeMap.values()) {
+            subtype.writeToBuffer(modelPbo, partPbo);
         }
     }
 

@@ -126,7 +126,7 @@ public abstract class ModelPartMixin implements BakeablePart {
             model.a31 = new31;
             model.a32 = new32;
 
-            MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().getMatrixList();
+            MatrixList matrixList = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentSubtypeData().getCurrentModelInstanceData().getMatrixList();
             if (this.visible) {
                 matrixList.add(bmm$id, model);
             }

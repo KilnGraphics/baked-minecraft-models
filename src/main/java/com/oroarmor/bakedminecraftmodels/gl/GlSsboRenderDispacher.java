@@ -3,6 +3,7 @@ package com.oroarmor.bakedminecraftmodels.gl;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.oroarmor.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
+import com.oroarmor.bakedminecraftmodels.data.ModelRenderSubtypeData;
 import com.oroarmor.bakedminecraftmodels.data.ModelTypeData;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import com.oroarmor.bakedminecraftmodels.model.InstancedRenderDispatcher;
@@ -95,33 +96,30 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         }
         SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-        for (ModelTypeData modelTypeData : bakingData.getAllModelTypeData()) {
-            int instanceCount = modelTypeData.getInstanceCount();
-            if (instanceCount <= 0) continue;
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
 
-            RenderLayer layer = modelTypeData.getRenderLayer();
-            if (layer == null) {
-                throw new RuntimeException("RenderLayer provided with BufferBuilder is null");
-            }
+        partPbo.nextSection();
+        modelPbo.nextSection();
+        SYNC_OBJECTS.nextSection();
+
+        for (ModelTypeData modelTypeData : bakingData.getAllModelTypeData()) {
+
             VertexBuffer vertexBuffer = modelTypeData.getModel().getBakedVertices();
             VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
             int vertexCount = vertexBufferAccessor.getVertexCount();
             VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-            Shader shader = BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL;
-            if (shader == null) {
-                throw new IllegalStateException("Smart entity shader is null");
-            }
 
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getSectionSize());
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getSectionSize());
+            if (vertexCount <= 0) continue;
 
-            partPbo.nextSection();
-            modelPbo.nextSection();
-            SYNC_OBJECTS.nextSection();
+            for (ModelRenderSubtypeData subtypeData : modelTypeData.getAllSubtypeData()) {
+                RenderLayer layer = subtypeData.getRenderLayer();
+                int instanceCount = subtypeData.getInstanceCount();
 
-            if (vertexCount != 0) {
+                if (instanceCount <= 0) continue;
+
                 layer.startDrawing();
-                RenderSystem.assertThread(RenderSystem::isOnRenderThread);
+                Shader shader = RenderSystem.getShader();
                 BufferRenderer.unbindAll();
 
                 for (int i = 0; i < 12; ++i) {
@@ -181,9 +179,9 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                 VertexBuffer.unbind();
                 VertexBuffer.unbindVertexArray();
                 layer.endDrawing();
-            }
 
-            instanceOffset += instanceCount;
+                instanceOffset += instanceCount;
+            }
         }
 
         bakingData.reset();

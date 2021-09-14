@@ -97,9 +97,9 @@ public abstract class ModelMixins implements VboBackedModel {
                 bmm$drawMode = convertedRenderLayer.getDrawMode();
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
                 GlobalModelUtils.bakingData.tryCreateCurrentModelTypeData(this);
-                GlobalModelUtils.bakingData.getCurrentModelTypeData().setRenderLayer(convertedRenderLayer);
-                GlobalModelUtils.bakingData.getCurrentModelTypeData().createCurrentModelInstanceData();
-                GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().tryCreateCurrentSubtypeData(convertedRenderLayer);
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentSubtypeData().createCurrentModelInstanceData();
+                GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentSubtypeData().getCurrentModelInstanceData().setBaseModelViewMatrix(matrices.peek().getModel());
             }
         } else {
             bmm$currentPassBakeable = false;
@@ -133,7 +133,7 @@ public abstract class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() != null && bmm$currentPassBakeable) {
-            ModelInstanceData modelInstanceData = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentModelInstanceData();
+            ModelInstanceData modelInstanceData = GlobalModelUtils.bakingData.getCurrentModelTypeData().getCurrentSubtypeData().getCurrentModelInstanceData();
             modelInstanceData.setLight(light);
             modelInstanceData.setOverlay(overlay);
             modelInstanceData.setColor(red, green, blue, alpha);

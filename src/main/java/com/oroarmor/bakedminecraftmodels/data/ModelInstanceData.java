@@ -93,6 +93,10 @@ public class ModelInstanceData {
         }
     }
 
+    /**
+     * After this is set once, until it's reset, this will ignore any subsequent
+     * calls to this method.
+     */
     public void setBaseModelViewMatrix(Matrix4f baseModelViewMatrix) {
         if (this.baseModelViewMatrix == null) {
             this.baseModelViewMatrix = baseModelViewMatrix;
