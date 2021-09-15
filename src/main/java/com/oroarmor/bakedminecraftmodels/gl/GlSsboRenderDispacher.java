@@ -108,14 +108,13 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             VertexBuffer vertexBuffer = modelTypeData.getModel().getBakedVertices();
             VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
             int vertexCount = vertexBufferAccessor.getVertexCount();
-            VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-
             if (vertexCount <= 0) continue;
+
+            VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
 
             for (ModelRenderSubtypeData subtypeData : modelTypeData.getAllSubtypeData()) {
                 RenderLayer layer = subtypeData.getRenderLayer();
                 int instanceCount = subtypeData.getInstanceCount();
-
                 if (instanceCount <= 0) continue;
 
                 layer.startDrawing();
