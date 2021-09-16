@@ -73,4 +73,8 @@ public class SectionedPersistentBuffer {
         return positionOffset;
     }
 
+    public long getSectionOffset() {
+        return sectionOffset;
+    }
+
 }

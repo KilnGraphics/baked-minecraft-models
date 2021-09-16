@@ -38,7 +38,7 @@ public class BakedMinecraftModelsShaderManager {
 
     public static void loadShaders(ResourceManager manager) {
         try {
-            SMART_ENTITY_CUTOUT_NO_CULL = new Shader(manager, "rendertype_entity_cutout_no_cull_smart", BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
+            SMART_ENTITY_CUTOUT_NO_CULL = new Shader(manager, "rendertype_entity_cutout_no_cull_buffer_tex", BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT);
             INSTANCE_OFFSET = SMART_ENTITY_CUTOUT_NO_CULL.getUniform("InstanceOffset");
         } catch (IOException e) {
             e.printStackTrace();

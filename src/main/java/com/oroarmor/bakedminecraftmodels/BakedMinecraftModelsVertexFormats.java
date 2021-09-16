@@ -37,6 +37,6 @@ public class BakedMinecraftModelsVertexFormats {
                     .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
                     .put("Normal", VertexFormats.NORMAL_ELEMENT)
                     .put("Padding", VertexFormats.PADDING_ELEMENT)
-                    .put("PartId", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
+                    .put("PartId", new VertexFormatElement(0, VertexFormatElement.DataType.INT, VertexFormatElement.Type.UV, 1)) // TODO: this can be uint sometimes
                     .build());
 }

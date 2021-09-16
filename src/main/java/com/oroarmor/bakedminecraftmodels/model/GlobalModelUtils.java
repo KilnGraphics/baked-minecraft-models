@@ -25,7 +25,7 @@
 package com.oroarmor.bakedminecraftmodels.model;
 
 import com.oroarmor.bakedminecraftmodels.data.BakingData;
-import com.oroarmor.bakedminecraftmodels.gl.GlSsboRenderDispacher;
+import com.oroarmor.bakedminecraftmodels.gl.GlBufferTexRenderDispacher;
 import com.oroarmor.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import com.oroarmor.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.render.BufferBuilder;
@@ -44,7 +44,7 @@ public class GlobalModelUtils {
 
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
 
-    public static final InstancedRenderDispatcher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispacher();
+    public static final InstancedRenderDispatcher INSTANCED_RENDER_DISPATCHER = new GlBufferTexRenderDispacher();
 
     public static VertexConsumer getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
         return consumer instanceof SpriteTexturedVertexConsumer ?
