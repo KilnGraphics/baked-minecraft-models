@@ -23,29 +23,25 @@ import static com.oroarmor.bakedminecraftmodels.model.GlobalModelUtils.*;
 
 public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
-    public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-
-    public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-
-    public static final int BUFFER_SECTIONS = 3;
-
-    public static final int ENTITY_LIMIT = 8192;
-
+    private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+    private static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+    private static final int BUFFER_SECTIONS = 3;
+    private static final int ENTITY_LIMIT = 8192;
     public static final long PART_PBO_SIZE = ENTITY_LIMIT * 16 * PART_STRUCT_SIZE; // assume each entity has on average 16 parts
     public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * MODEL_STRUCT_SIZE;
 
     private static SectionedPersistentBuffer PART_PBO;
     private static SectionedPersistentBuffer MODEL_PBO;
-    public static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(BUFFER_SECTIONS);
+    private static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(BUFFER_SECTIONS);
 
-    public static SectionedPersistentBuffer getOrCreatePartPbo() {
+    private static SectionedPersistentBuffer getOrCreatePartPbo() {
         if (PART_PBO == null) {
             PART_PBO = createSsboPersistentBuffer(PART_PBO_SIZE);
         }
         return PART_PBO;
     }
 
-    public static SectionedPersistentBuffer getOrCreateModelPbo() {
+    private static SectionedPersistentBuffer getOrCreateModelPbo() {
         if (MODEL_PBO == null) {
             MODEL_PBO = createSsboPersistentBuffer(MODEL_PBO_SIZE);
         }
