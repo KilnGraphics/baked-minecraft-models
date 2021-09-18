@@ -73,11 +73,11 @@ public class BakingData {
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
         if (internalData.size() == 0 || !previousTransparency.equals(currentTransparency)) {
             previousTransparency = currentTransparency;
-            internalData.add(new HashMap<>());
+            internalData.add(new LinkedHashMap<>());
         }
 
         internalData.peek()
-                .computeIfAbsent(currentModel, unused -> new HashMap<>())
+                .computeIfAbsent(currentModel, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(currentRenderLayer, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
                 .add(new BakingData.PerInstanceData(currentBaseMatrix, stagingMatrixList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
