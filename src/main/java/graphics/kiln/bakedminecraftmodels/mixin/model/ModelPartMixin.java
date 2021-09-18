@@ -25,7 +25,6 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.access.BakeablePart;
-import graphics.kiln.bakedminecraftmodels.data.MatrixList;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
@@ -35,13 +34,13 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.List;
+import java.util.Map;
 
 @Mixin(ModelPart.class)
 public abstract class ModelPartMixin implements BakeablePart {
@@ -51,9 +50,6 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Unique
     private boolean bmm$usingSmartRenderer;
-
-    @Unique
-    private boolean bmm$rotateOnly;
 
     @Shadow
     public boolean visible;
@@ -65,6 +61,12 @@ public abstract class ModelPartMixin implements BakeablePart {
     @Shadow public float pitch;
 
     @Shadow public float yaw;
+
+    @Shadow @Final private List<ModelPart.Cuboid> cuboids;
+
+    @Shadow @Final private Map<String, ModelPart> children;
+
+    @Shadow public abstract void rotate(MatrixStack matrix);
 
     @Override
     public void setId(int id) {
@@ -126,28 +128,54 @@ public abstract class ModelPartMixin implements BakeablePart {
             model.a31 = new31;
             model.a32 = new32;
 
-            if (this.visible) {
-                GlobalModelUtils.bakingData.addPartMatrix(bmm$id, model);
-            }
+            GlobalModelUtils.bakingData.addPartMatrix(bmm$id, this.visible ? model : null); // TODO: does this method ever get called when the part is not visible?
             ci.cancel();
         }
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", shift = At.Shift.BEFORE, target = "Lnet/minecraft/client/util/math/MatrixStack;push()V"))
-    public void useVertexBufferRender(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        bmm$rotateOnly = vertexConsumer == null;
-        bmm$usingSmartRenderer = (bmm$rotateOnly || vertexConsumer instanceof SmartBufferBuilderWrapper) && MinecraftClient.getInstance().getWindow() != null;
+    /**
+     * Used to manipulate visibility, matrices, and drawing
+     *
+     * @author burgerdude
+     */
+    @Overwrite
+    public void render(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
+        if (!this.cuboids.isEmpty() || !this.children.isEmpty()) {
+            boolean rotateOnly = vertexConsumer == null;
+            bmm$usingSmartRenderer = (rotateOnly || vertexConsumer instanceof SmartBufferBuilderWrapper) && MinecraftClient.getInstance().getWindow() != null;
+
+            // force render when constructing the vbo
+            if (this.visible || (!rotateOnly && bmm$usingSmartRenderer)) {
+                matrices.push();
+
+                this.rotate(matrices);
+
+                if (bmm$usingSmartRenderer) {
+                    if (!rotateOnly) {
+                        ((SmartBufferBuilderWrapper) vertexConsumer).setId(this.getId());
+                        this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
+                    }
+                } else {
+                    this.renderCuboids(matrices.peek(), vertexConsumer, light, overlay, red, green, blue, alpha);
+                }
+
+                for(ModelPart modelPart : this.children.values()) {
+                    modelPart.render(matrices, vertexConsumer, light, overlay, red, green, blue, alpha);
+                }
+
+                matrices.pop();
+            } else {
+                recurseSetNullMatrix((ModelPart) (Object) this);
+            }
+        }
     }
 
-    @Redirect(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/ModelPart;renderCuboids(Lnet/minecraft/client/util/math/MatrixStack$Entry;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V"))
-    public void forceRotateOrChangeMatrixStack(ModelPart modelPart, MatrixStack.Entry entry, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
-        if (bmm$usingSmartRenderer) {
-            if (!bmm$rotateOnly) {
-                ((SmartBufferBuilderWrapper) vertexConsumer).setId(this.getId());
-                this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
+    private static void recurseSetNullMatrix(ModelPart modelPart) {
+        if ((Object) modelPart instanceof ModelPartMixin modelPartMixin) {
+            GlobalModelUtils.bakingData.addPartMatrix(modelPartMixin.getId(), null);
+            for (ModelPart child : modelPartMixin.children.values()) {
+                recurseSetNullMatrix(child);
             }
-        } else {
-            this.renderCuboids(entry, vertexConsumer, light, overlay, red, green, blue, alpha);
         }
     }
 

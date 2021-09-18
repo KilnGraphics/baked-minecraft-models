@@ -64,7 +64,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
             try {
                 System.loadLibrary("renderdoc");
             } catch (Throwable e) {
-                System.err.println("Unable to load renderdoc");
+                LOGGER.error("Unable to load renderdoc");
             }
         }
 

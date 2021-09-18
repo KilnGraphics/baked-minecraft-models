@@ -32,6 +32,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix4f;
 
 public class GlobalModelUtils {
 
@@ -39,7 +40,6 @@ public class GlobalModelUtils {
     public static final long PART_STRUCT_SIZE = 16 * Float.BYTES;
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
-
     public static final BakingData bakingData = new BakingData();
 
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol

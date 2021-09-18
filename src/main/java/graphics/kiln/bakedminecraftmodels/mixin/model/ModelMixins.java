@@ -44,7 +44,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// FIXME: make sure when a model's render calls super, only do the procedure once and in the outer-most injection
 @Mixin({AnimalModel.class,
         BookModel.class, // TODO OPT: inject into renderBook instead of render so it works on block models
         CompositeEntityModel.class,
@@ -59,7 +58,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
         TintableAnimalModel.class,
         TintableCompositeModel.class,
         TridentEntityModel.class, // FIXME: enchantment glint uses dual
-        TurtleEntityModel.class // FIXME: this is broken
+        TurtleEntityModel.class
 })
 public abstract class ModelMixins implements VboBackedModel {
 
@@ -89,7 +88,7 @@ public abstract class ModelMixins implements VboBackedModel {
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (!bmm$childBakeable() && GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
+       if (!bmm$childBakeable() && GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
             RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(renderLayerContainer.getRenderLayer());
             bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
             if (bmm$currentPassBakeable) {

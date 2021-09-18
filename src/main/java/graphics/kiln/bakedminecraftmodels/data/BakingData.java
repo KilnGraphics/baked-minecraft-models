@@ -124,13 +124,19 @@ public class BakingData {
             modelPbo.addPositionOffset(GlobalModelUtils.MODEL_STRUCT_SIZE);
 
             // keep an array of written matrices. if a matrix slot in the array hasn't been written to, write the default one.
+            // if the provided matrix is null, we know that it's meant to not be visible, so write a matrix of 0s.
             int matrixCount = partMatrices.getLargestIndex() + 1;
             boolean[] indexWrittenArray = new boolean[matrixCount];
             MatrixList.Node currentNode;
             while ((currentNode = partMatrices.next()) != null) {
                 int idx = currentNode.getIndex();
                 indexWrittenArray[idx] = true;
-                writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, currentNode.getMatrix());
+                Matrix4f matrix = currentNode.getMatrix();
+                if (matrix != null) {
+                    writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, matrix);
+                } else {
+                    writeNullMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+                }
             }
 
             for (int idx = 0; idx < indexWrittenArray.length; idx++) {
@@ -159,6 +165,10 @@ public class BakingData {
             MemoryUtil.memPutFloat(pointer + 52, matrix.a13);
             MemoryUtil.memPutFloat(pointer + 56, matrix.a23);
             MemoryUtil.memPutFloat(pointer + 60, matrix.a33);
+        }
+
+        private static void writeNullMatrix4f(long pointer) {
+            MemoryUtil.memSet(pointer, 0, 64);
         }
     }
 
