@@ -164,7 +164,7 @@ public abstract class ModelPartMixin implements BakeablePart {
                 }
 
                 matrices.pop();
-            } else {
+            } else if (bmm$usingSmartRenderer) {
                 recurseSetNullMatrix((ModelPart) (Object) this);
             }
         }
