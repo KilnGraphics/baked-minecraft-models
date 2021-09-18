@@ -19,7 +19,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.oroarmor.bakedminecraftmodels.BakedMinecraftModels"
+      "graphics.kiln.bakedminecraftmodels.BakedMinecraftModels"
     ]
   },
   "accessWidener": "baked_minecraft_models.accesswidener",
