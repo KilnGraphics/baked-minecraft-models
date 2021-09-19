@@ -84,6 +84,23 @@ public class BakingData {
         return (Deque<Map<VboBackedModel, Map<RenderLayer, List<?>>>>) (Object) internalData;
     }
 
+    public boolean isEmptyShallow() {
+        return internalData.isEmpty();
+    }
+
+    public boolean isEmptyDeep() {
+        for (Map<VboBackedModel, Map<RenderLayer, List<PerInstanceData>>> perOrderedSectionData : internalData) {
+            for (Map<RenderLayer, List<PerInstanceData>> perModelData : perOrderedSectionData.values()) {
+                for (List<PerInstanceData> perRenderLayerData : perModelData.values()) {
+                    for (PerInstanceData perInstanceData : perRenderLayerData) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public void reset() {
         internalData.clear();
     }
