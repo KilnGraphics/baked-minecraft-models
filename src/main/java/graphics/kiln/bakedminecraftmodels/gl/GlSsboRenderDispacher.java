@@ -8,6 +8,7 @@ package graphics.kiln.bakedminecraftmodels.gl;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import graphics.kiln.bakedminecraftmodels.data.BakingData;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
@@ -35,9 +36,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_SECTIONS = 3;
-    public static final int ENTITY_LIMIT = 8192;
-    public static final long PART_PBO_SIZE = ENTITY_LIMIT * 16 * GlobalModelUtils.PART_STRUCT_SIZE; // assume each entity has on average 16 parts
-    public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * GlobalModelUtils.MODEL_STRUCT_SIZE;
+    public static final long PART_PBO_SIZE = 5242880L; // 5 MiB
+    public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
 
     private static SectionedPersistentBuffer PART_PBO;
     private static SectionedPersistentBuffer MODEL_PBO;
@@ -78,9 +78,9 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             long currentPartSyncObject = SYNC_OBJECTS.getCurrentSyncObject();
 
             if (currentPartSyncObject != MemoryUtil.NULL) {
-                int waitReturn = GL32C.GL_UNSIGNALED;
-                while (waitReturn != GL32C.GL_ALREADY_SIGNALED && waitReturn != GL32C.GL_CONDITION_SATISFIED) {
-                    waitReturn = GL32C.glClientWaitSync(currentPartSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 1);
+                int waitResult = GL32C.glClientWaitSync(currentPartSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 10000000); // 10 seconds
+                if (waitResult == GL32C.GL_WAIT_FAILED || waitResult == GL32C.GL_TIMEOUT_EXPIRED) {
+                    BakedMinecraftModels.LOGGER.error("OpenGL sync failed");
                 }
             }
 
