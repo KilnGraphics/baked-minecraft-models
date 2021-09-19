@@ -92,7 +92,7 @@ public class BakingData {
         for (Map<VboBackedModel, Map<RenderLayer, List<PerInstanceData>>> perOrderedSectionData : internalData) {
             for (Map<RenderLayer, List<PerInstanceData>> perModelData : perOrderedSectionData.values()) {
                 for (List<PerInstanceData> perRenderLayerData : perModelData.values()) {
-                    for (PerInstanceData perInstanceData : perRenderLayerData) {
+                    if (perRenderLayerData.size() > 0) {
                         return true;
                     }
                 }

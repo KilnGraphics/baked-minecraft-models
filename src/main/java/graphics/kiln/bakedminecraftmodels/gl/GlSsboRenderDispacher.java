@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import graphics.kiln.bakedminecraftmodels.data.BakingData;
+import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
@@ -31,10 +32,10 @@ import java.util.Map;
 
 public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
-    private static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-    private static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
-    private static final int BUFFER_SECTIONS = 3;
-    private static final int ENTITY_LIMIT = 8192;
+    public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+    public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
+    public static final int BUFFER_SECTIONS = 3;
+    public static final int ENTITY_LIMIT = 8192;
     public static final long PART_PBO_SIZE = ENTITY_LIMIT * 16 * GlobalModelUtils.PART_STRUCT_SIZE; // assume each entity has on average 16 parts
     public static final long MODEL_PBO_SIZE = ENTITY_LIMIT * GlobalModelUtils.MODEL_STRUCT_SIZE;
 
@@ -102,6 +103,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getPositionOffset());
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getPositionOffset());
 
+            DebugInfo.currentPartBufferSize = partPbo.getPositionOffset();
+            DebugInfo.currentModelBufferSize = modelPbo.getPositionOffset();
             partPbo.nextSection();
             modelPbo.nextSection();
             SYNC_OBJECTS.nextSection();
@@ -186,6 +189,10 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         layer.endDrawing();
 
                         instanceOffset += instanceCount;
+
+                        DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(perModelData.getKey().getClass().getSimpleName(), (ignored) -> new DebugInfo.ModelDebugInfo());
+                        currentDebugInfo.instances += instanceCount;
+                        currentDebugInfo.sets++;
                     }
                 }
             }
