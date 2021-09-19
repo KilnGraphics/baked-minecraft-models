@@ -63,7 +63,7 @@ if (project.hasProperty("sign")) {
 }
 
 license {
-    header = rootProject.file("LICENSE")
+    header = rootProject.file("LICENSE-HEADER")
 }
 
 dependencies {
@@ -131,18 +131,18 @@ publishing {
                 packaging = 'jar'
                 // optionally artifactId can be defined here
                 description = 'Bakes minecraft models into vertex buffers and uses an animation system to reduce data uploading.'
-                url = 'http://github.com/Blaze4d-MC/baked-minecraft-models'
+                url = 'http://github.com/KilnGraphics/baked-minecraft-models'
 
                 scm {
-                    connection = 'scm:git:git://github.com/Blaze4d-MC/baked-minecraft-models.git'
-                    developerConnection = 'scm:git:ssh://github.com:Blaze4d-MC/baked-minecraft-models.git'
-                    url = 'http://github.com/Blaze4d-MC/baked-minecraft-models'
+                    connection = 'scm:git:git://github.com/KilnGraphics/baked-minecraft-models.git'
+                    developerConnection = 'scm:git:ssh://github.com:KilnGraphics/baked-minecraft-models.git'
+                    url = 'http://github.com/KilnGraphics/baked-minecraft-models'
                 }
 
                 licenses {
                     license {
-                        name = 'MIT'
-                        url = 'https://mit-license.org/'
+                        name = 'mpl-2.0'
+                        url = 'https://www.mozilla.org/en-US/MPL/2.0/'
                     }
                 }
 
@@ -152,6 +152,10 @@ publishing {
                         name = 'Eli Orona'
                         email = 'eliorona@live.com'
                         url = "oroarmor.com"
+                    }
+
+                    developer {
+                        id = 'burgerdude'
                     }
                 }
             }
@@ -189,7 +193,7 @@ task github {
 
     doLast {
         def github = org.kohsuke.github.GitHub.connectUsingOAuth(System.getenv().GITHUB_TOKEN as String)
-        def repository = github.getRepository("Blaze4d-MC/baked-minecraft-models")
+        def repository = github.getRepository("KilnGraphics/baked-minecraft-models")
 
         def releaseBuilder = new org.kohsuke.github.GHReleaseBuilder(repository, project.mod_version)
         releaseBuilder.name("$project.project_name $project.mod_version for $project.minecraft_version")
