@@ -8,6 +8,8 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
+import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
+import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
@@ -53,13 +55,13 @@ public class BakingData {
         int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
 
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
-        if (internalData.size() == 0 || !previousTransparency.equals(currentTransparency)) {
-            previousTransparency = currentTransparency;
-            internalData.add(new LinkedHashMap<>());
+        if (internalData.size() == 0 || !((RenderPhaseAccessor) previousTransparency).getName().equals("no_transparency")) {
+            internalData.add(new HashMap<>());
         }
+        previousTransparency = currentTransparency;
 
         internalData.peek()
-                .computeIfAbsent(currentModel, unused -> new LinkedHashMap<>())
+                .computeIfAbsent(currentModel, unused -> new HashMap<>())
                 .computeIfAbsent(currentRenderLayer, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
                 .add(new BakingData.PerInstanceData(currentBaseMatrix, stagingMatrixList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
