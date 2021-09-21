@@ -28,79 +28,69 @@ public class BakedMinecraftModelsRenderLayerManager {
             return null;
         }
 
-        MultiPhaseParametersAccessor dumbMultiPhaseParameters;
-        if (dumbRenderLayer instanceof MultiPhaseRenderPassAccessor dumbMultiPhaseRenderPass) {
-            dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) dumbMultiPhaseRenderPass.getPhases());
-        } else {
-            return null;
-        }
+        RenderLayer convertedRenderLayer = null;
+        // we check if it is contained here because null may be the intentional output for incompatible layers.
+        if (dumbToSmart.containsKey(dumbRenderLayer)) {
+            return dumbToSmart.get(dumbRenderLayer);
+        } else if (dumbRenderLayer instanceof MultiPhaseRenderPassAccessor dumbMultiPhaseRenderPass) {
+            MultiPhaseParametersAccessor dumbMultiPhaseParameters = ((MultiPhaseParametersAccessor) (Object) dumbMultiPhaseRenderPass.getPhases());
+            Optional<Supplier<Shader>> possibleSupplier = ((RenderPhaseShaderAccessor) dumbMultiPhaseParameters.getShader()).getSupplier();
+            if (possibleSupplier.isPresent()) {
+                Shader dumbShader = possibleSupplier.get().get();
+                if (dumbShader != null) {
+                    if (SHADER_CONVERSION_MAP == null) {
+                        SHADER_CONVERSION_MAP = Map.of(
+                                GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL
+                        );
+                    }
 
-        Optional<Supplier<Shader>> possibleSupplier = ((RenderPhaseShaderAccessor) dumbMultiPhaseParameters.getShader()).getSupplier();
-        Shader dumbShader;
-        if (possibleSupplier.isPresent()) {
-            dumbShader = possibleSupplier.get().get();
-            if (dumbShader == null) {
-                return null;
-            }
-        } else {
-            return null;
-        }
+                    Shader convertedShader = SHADER_CONVERSION_MAP.get(dumbShader);
+                    if (convertedShader != null && dumbRenderLayer instanceof RenderLayerAccessor dumbRenderLayerAccessor) {
+                        RenderLayer.MultiPhaseParameters phaseParameters = RenderLayer.MultiPhaseParameters.builder()
+                                .cull(dumbMultiPhaseParameters.getCull())
+                                .depthTest(dumbMultiPhaseParameters.getDepthTest())
+                                .layering(dumbMultiPhaseParameters.getLayering())
+                                .lightmap(dumbMultiPhaseParameters.getLightmap())
+                                .lineWidth(dumbMultiPhaseParameters.getLineWidth())
+                                .overlay(dumbMultiPhaseParameters.getOverlay())
+                                .shader(new RenderPhase.Shader(() -> convertedShader))
+                                .target(dumbMultiPhaseParameters.getTarget())
+                                .texture(dumbMultiPhaseParameters.getTexture())
+                                .texturing(dumbMultiPhaseParameters.getTexturing())
+                                .transparency(dumbMultiPhaseParameters.getTransparency())
+                                .writeMaskState(dumbMultiPhaseParameters.getWriteMaskState())
+                                .build(dumbMultiPhaseParameters.getOutlineMode());
 
-        if (SHADER_CONVERSION_MAP == null) {
-            SHADER_CONVERSION_MAP = Map.of(
-                    GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL
-            );
-        }
+                        convertedRenderLayer = new RenderLayer.MultiPhase(
+                                dumbRenderLayerAccessor.getName(),
+                                convertedShader.getFormat(),
+                                dumbRenderLayer.getDrawMode(),
+                                dumbRenderLayer.getExpectedBufferSize(),
+                                dumbRenderLayerAccessor.getHasCrumbling(),
+                                dumbRenderLayerAccessor.getTranslucent(),
+                                phaseParameters
+                        ) {
+                            /**
+                             * Minecraft spends a long time with the startDrawing and endDrawing setting opengl variables and such.
+                             * We don't want that because we know the vertex count will always be 0.
+                             */
+                            @Override
+                            public void draw(BufferBuilder buffer, int cameraX, int cameraY, int cameraZ) {
+                                if (buffer.isBuilding()) {
+                                    if (((RenderLayerAccessor) (Object) this).getTranslucent()) {
+                                        buffer.setCameraPosition((float)cameraX, (float)cameraY, (float)cameraZ);
+                                    }
 
-        Shader convertedShader = SHADER_CONVERSION_MAP.get(dumbShader);
-        if (convertedShader == null) {
-            return null;
-        }
-
-        return dumbToSmart.computeIfAbsent(dumbRenderLayer, _dumbRenderLayer -> {
-
-            RenderLayerAccessor dumbRenderLayerAccessor = ((RenderLayerAccessor) _dumbRenderLayer);
-
-            RenderLayer.MultiPhaseParameters phaseParameters = RenderLayer.MultiPhaseParameters.builder()
-                    .cull(dumbMultiPhaseParameters.getCull())
-                    .depthTest(dumbMultiPhaseParameters.getDepthTest())
-                    .layering(dumbMultiPhaseParameters.getLayering())
-                    .lightmap(dumbMultiPhaseParameters.getLightmap())
-                    .lineWidth(dumbMultiPhaseParameters.getLineWidth())
-                    .overlay(dumbMultiPhaseParameters.getOverlay())
-                    // TODO: actually check the renderlayer to determine the shader, not a huge issue right now, but will cause issues later
-                    .shader(new RenderPhase.Shader(() -> convertedShader))
-                    .target(dumbMultiPhaseParameters.getTarget())
-                    .texture(dumbMultiPhaseParameters.getTexture())
-                    .texturing(dumbMultiPhaseParameters.getTexturing())
-                    .transparency(dumbMultiPhaseParameters.getTransparency())
-                    .writeMaskState(dumbMultiPhaseParameters.getWriteMaskState())
-                    .build(dumbMultiPhaseParameters.getOutlineMode());
-
-            return new RenderLayer.MultiPhase(
-                    dumbRenderLayerAccessor.getName(),
-                    convertedShader.getFormat(),
-                    _dumbRenderLayer.getDrawMode(),
-                    _dumbRenderLayer.getExpectedBufferSize(),
-                    dumbRenderLayerAccessor.getHasCrumbling(),
-                    dumbRenderLayerAccessor.getTranslucent(),
-                    phaseParameters
-            ) {
-                /**
-                 * Minecraft spends a long time with the startDrawing and endDrawing setting opengl variables and such.
-                 * We don't want that because we know the vertex count will always be 0.
-                 */
-                @Override
-                public void draw(BufferBuilder buffer, int cameraX, int cameraY, int cameraZ) {
-                    if (buffer.isBuilding()) {
-                        if (((RenderLayerAccessor) (Object) this).getTranslucent()) {
-                            buffer.setCameraPosition((float)cameraX, (float)cameraY, (float)cameraZ);
-                        }
-
-                        buffer.end();
+                                    buffer.end();
+                                }
+                            }
+                        };
                     }
                 }
-            };
-        });
+            }
+        }
+
+        dumbToSmart.put(dumbRenderLayer, convertedRenderLayer);
+        return convertedRenderLayer;
     }
 }
