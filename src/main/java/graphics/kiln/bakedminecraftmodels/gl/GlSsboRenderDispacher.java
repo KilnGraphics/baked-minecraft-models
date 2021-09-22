@@ -30,6 +30,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
@@ -111,24 +112,41 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
             int instanceOffset = 0;
 
-            for (Map<VboBackedModel, Map<RenderLayer, List<?>>> perOrderedSectionData : GlobalModelUtils.bakingData.getInternalData()) {
+            RenderLayer currentRenderLayer = null;
+            VertexBuffer currentVertexBuffer = null;
+            BufferRenderer.unbindAll();
 
-                for (Map.Entry<VboBackedModel, Map<RenderLayer, List<?>>> perModelData : perOrderedSectionData.entrySet()) {
-                    VertexBuffer vertexBuffer = perModelData.getKey().getBakedVertices();
-                    VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) vertexBuffer;
-                    int vertexCount = vertexBufferAccessor.getVertexCount();
-                    if (vertexCount <= 0) continue;
+            for (Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : GlobalModelUtils.bakingData.getInternalData()) {
 
-                    VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+                for (Map.Entry<RenderLayer, Map<VboBackedModel, List<?>>> perRenderLayerData : perOrderedSectionData.entrySet()) {
+                    RenderLayer nextRenderLayer = perRenderLayerData.getKey();
+                    if (currentRenderLayer == null) {
+                        currentRenderLayer = nextRenderLayer;
+                        currentRenderLayer.startDrawing();
+                    } else if (!currentRenderLayer.equals(nextRenderLayer)) {
+                        currentRenderLayer.endDrawing();
+                        currentRenderLayer = nextRenderLayer;
+                        currentRenderLayer.startDrawing();
+                    }
 
-                    for (Map.Entry<RenderLayer, List<?>> subtypeData : perModelData.getValue().entrySet()) {
-                        RenderLayer layer = subtypeData.getKey();
-                        int instanceCount = subtypeData.getValue().size();
+                    for (Map.Entry<VboBackedModel, List<?>> perModelData : perRenderLayerData.getValue().entrySet()) {
+                        VertexBuffer nextVertexBuffer = perModelData.getKey().getBakedVertices();
+                        VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
+                        int vertexCount = vertexBufferAccessor.getVertexCount();
+                        if (vertexCount <= 0) continue;
+
+                        if (!Objects.equals(currentVertexBuffer, nextVertexBuffer)) {
+                            currentVertexBuffer = nextVertexBuffer;
+                            vertexBufferAccessor.invokeBindVertexArray();
+                            vertexBufferAccessor.invokeBind();
+                        }
+
+                        VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+
+                        int instanceCount = perModelData.getValue().size();
                         if (instanceCount <= 0) continue;
 
-                        layer.startDrawing();
                         Shader shader = RenderSystem.getShader();
-                        BufferRenderer.unbindAll();
 
                         for (int i = 0; i < 12; ++i) {
                             int j = RenderSystem.getShaderTexture(i);
@@ -177,16 +195,11 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         }
 
                         RenderSystem.setupShaderLights(shader);
-                        vertexBufferAccessor.invokeBindVertexArray();
-                        vertexBufferAccessor.invokeBind();
-                        vertexBuffer.getElementFormat().startDrawing();
+                        nextVertexBuffer.getElementFormat().startDrawing();
                         shader.bind();
                         GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
                         shader.unbind();
-                        vertexBuffer.getElementFormat().endDrawing();
-                        VertexBuffer.unbind();
-                        VertexBuffer.unbindVertexArray();
-                        layer.endDrawing();
+                        nextVertexBuffer.getElementFormat().endDrawing();
 
                         instanceOffset += instanceCount;
 
@@ -195,6 +208,10 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         currentDebugInfo.sets++;
                     }
                 }
+            }
+
+            if (currentRenderLayer != null) {
+                currentRenderLayer.endDrawing();
             }
 
             GlobalModelUtils.bakingData.reset();

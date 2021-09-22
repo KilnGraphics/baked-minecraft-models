@@ -26,6 +26,8 @@ public class WorldRendererMixin {
 
     @Shadow private ClientWorld world;
 
+    // TODO: this is placed here because it's supposed to render before the rest of the entity stuff, but the subsequent calls to getRenderLayer cause them to flush early, so only one or two calls happen after this.
+    // maybe merge a batching solution in?
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/VertexConsumerProvider$Immediate;drawCurrentLayer()V", shift = At.Shift.BEFORE))
     private void renderQueues(MatrixStack matrices, float tickDelta, long limitTime, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer, LightmapTextureManager lightmapTextureManager, Matrix4f matrix4f, CallbackInfo ci) {
         this.world.getProfiler().push("renderInstances");

@@ -28,7 +28,7 @@ public class BakingData {
      * For each model in the map, it has its own map where each RenderLayer has a list of instances. This is
      * because we can only batch instances with the same RenderLayer and model.
      */
-    private final Deque<Map<VboBackedModel, Map<RenderLayer, List<PerInstanceData>>>> internalData;
+    private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> internalData;
 
     private RenderLayer currentRenderLayer;
     private VboBackedModel currentModel;
@@ -54,15 +54,23 @@ public class BakingData {
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
         int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
 
+        // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
-        if (internalData.size() == 0 || !((RenderPhaseAccessor) previousTransparency).getName().equals("no_transparency")) {
-            internalData.add(new HashMap<>());
+        if (internalData.size() == 0) {
+            internalData.add(new LinkedHashMap<>());
+        } else if (currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
+            String currentTransparencyName = currentTransparencyAccessor.getName();
+            String previousTransparencyName = previousTransparencyAccessor.getName();
+            // additive can be unordered and still have the correct output
+            if (!currentTransparencyName.equals("no_transparency") && !(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
+                internalData.add(new LinkedHashMap<>());
+            }
         }
         previousTransparency = currentTransparency;
 
         internalData.peek()
-                .computeIfAbsent(currentModel, unused -> new HashMap<>())
-                .computeIfAbsent(currentRenderLayer, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
+                .computeIfAbsent(currentRenderLayer, unused -> new LinkedHashMap<>())
+                .computeIfAbsent(currentModel, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
                 .add(new BakingData.PerInstanceData(currentBaseMatrix, stagingMatrixList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
@@ -71,10 +79,10 @@ public class BakingData {
     }
 
     public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        for (Map<VboBackedModel, Map<RenderLayer, List<PerInstanceData>>> perOrderedSectionData : internalData) {
-            for (Map<RenderLayer, List<PerInstanceData>> perModelData : perOrderedSectionData.values()) {
-                for (List<PerInstanceData> perRenderLayerData : perModelData.values()) {
-                    for (PerInstanceData perInstanceData : perRenderLayerData) {
+        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : internalData) {
+            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
+                for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
+                    for (PerInstanceData perInstanceData : perModelData) {
                         perInstanceData.writeToBuffer(modelPbo, partPbo);
                     }
                 }
@@ -82,8 +90,8 @@ public class BakingData {
         }
     }
 
-    public Deque<Map<VboBackedModel, Map<RenderLayer, List<?>>>> getInternalData() {
-        return (Deque<Map<VboBackedModel, Map<RenderLayer, List<?>>>>) (Object) internalData;
+    public Deque<Map<RenderLayer, Map<VboBackedModel, List<?>>>> getInternalData() {
+        return (Deque<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) internalData;
     }
 
     public boolean isEmptyShallow() {
@@ -91,10 +99,10 @@ public class BakingData {
     }
 
     public boolean isEmptyDeep() {
-        for (Map<VboBackedModel, Map<RenderLayer, List<PerInstanceData>>> perOrderedSectionData : internalData) {
-            for (Map<RenderLayer, List<PerInstanceData>> perModelData : perOrderedSectionData.values()) {
-                for (List<PerInstanceData> perRenderLayerData : perModelData.values()) {
-                    if (perRenderLayerData.size() > 0) {
+        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : internalData) {
+            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
+                for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
+                    if (perModelData.size() > 0) {
                         return true;
                     }
                 }
