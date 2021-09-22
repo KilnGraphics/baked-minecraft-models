@@ -18,6 +18,7 @@ import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedSyncObjects;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.RenderLayer;
@@ -189,8 +190,10 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                             shader.lineWidth.set(RenderSystem.getShaderLineWidth());
                         }
 
-                        if (BakedMinecraftModelsShaderManager.INSTANCE_OFFSET_1 != null) {
-                            BakedMinecraftModelsShaderManager.INSTANCE_OFFSET_1.set(instanceOffset);
+                        // we have to manually get it from the shader every time because different shaders have different uniform objects for the same uniform.
+                        GlUniform instanceOffsetUniform = shader.getUniform("InstanceOffset");
+                        if (instanceOffsetUniform != null) {
+                            instanceOffsetUniform.set(instanceOffset);
                         }
 
                         RenderSystem.setupShaderLights(shader);
