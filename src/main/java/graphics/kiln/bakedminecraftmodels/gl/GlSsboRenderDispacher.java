@@ -10,7 +10,6 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
-import graphics.kiln.bakedminecraftmodels.data.BakingData;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.model.InstancedRenderDispatcher;
@@ -190,8 +189,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                             shader.lineWidth.set(RenderSystem.getShaderLineWidth());
                         }
 
-                        if (BakedMinecraftModelsShaderManager.INSTANCE_OFFSET != null) {
-                            BakedMinecraftModelsShaderManager.INSTANCE_OFFSET.set(instanceOffset);
+                        if (BakedMinecraftModelsShaderManager.INSTANCE_OFFSET_1 != null) {
+                            BakedMinecraftModelsShaderManager.INSTANCE_OFFSET_1.set(instanceOffset);
                         }
 
                         RenderSystem.setupShaderLights(shader);
