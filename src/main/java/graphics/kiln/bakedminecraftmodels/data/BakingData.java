@@ -24,6 +24,12 @@ import java.util.*;
 public class BakingData {
 
     /**
+     * Slice current instances on transparency where order is required.
+     * Looks more correct, but may impact performance greatly.
+     */
+    public static final boolean TRANSPARENCY_SLICING = true;
+
+    /**
      * Each map in the deque represents a separate ordered section, which is required for transparency ordering.
      * For each model in the map, it has its own map where each RenderLayer has a list of instances. This is
      * because we can only batch instances with the same RenderLayer and model.
@@ -58,7 +64,7 @@ public class BakingData {
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
         if (internalData.size() == 0) {
             internalData.add(new LinkedHashMap<>());
-        } else if (currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
+        } else if (TRANSPARENCY_SLICING && currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
             String currentTransparencyName = currentTransparencyAccessor.getName();
             String previousTransparencyName = previousTransparencyAccessor.getName();
             // additive can be unordered and still have the correct output
@@ -68,7 +74,7 @@ public class BakingData {
         }
         previousTransparency = currentTransparency;
 
-        internalData.peek()
+        internalData.peekLast()
                 .computeIfAbsent(currentRenderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(currentModel, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
                 .add(new BakingData.PerInstanceData(currentBaseMatrix, stagingMatrixList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
