@@ -144,10 +144,6 @@ public abstract class ModelPartMixin implements BakeablePart {
                     modelPart.render(matrices, vertexConsumer, light, overlay, red, green, blue, alpha);
                 }
 
-                Matrix4f model = matrices.peek().getModel().copy();
-                model.invert();
-                model.transpose();
-
                 matrices.pop();
             } else if (bmm$usingSmartRenderer) {
                 recurseSetNullMatrix((ModelPart) (Object) this);
