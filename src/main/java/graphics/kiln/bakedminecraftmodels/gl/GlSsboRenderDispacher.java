@@ -37,7 +37,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_SECTIONS = 3;
-    public static final long PART_PBO_SIZE = 5242880L; // 5 MiB
+    public static final long PART_PBO_SIZE = 9175040L; // 8.75 MiB
     public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
 
     private static SectionedPersistentBuffer PART_PBO;

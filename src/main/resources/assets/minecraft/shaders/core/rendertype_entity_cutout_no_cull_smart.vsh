@@ -16,16 +16,20 @@ uniform vec3 Light1_Direction;
 
 uniform int InstanceOffset; // minecraft doesn't have a way to set uints
 
+struct ModelPart {
+    mat4 modelViewMat;
+    mat3x4 normalMat;
+};
 layout(std140, binding = 1) readonly restrict buffer modelPartsLayout {
-    mat4[] modelPartMatrices;
+    ModelPart[] modelParts;
 } modelPartsSsbo;
 
 struct Model {
     vec4 Color;
     ivec2 UV1;
     ivec2 UV2;
-    vec3 padding;
-    uint partOffset;
+    vec3 Padding;
+    uint PartOffset;
 };
 
 layout(std140, binding = 2) readonly restrict buffer modelsLayout {
@@ -45,14 +49,16 @@ void main() {
     #else
         Model model = modelsSsbo.models[InstanceOffset + gl_InstanceID];
     #endif
-    mat4 modelViewMat = modelPartsSsbo.modelPartMatrices[model.partOffset + PartId];
+    ModelPart modelPart = modelPartsSsbo.modelParts[model.PartOffset + PartId];
 
-    gl_Position = ProjMat * modelViewMat * vec4(Position, 1.0);
+    vec4 multipliedPosition = modelPart.modelViewMat * vec4(Position, 1.0);
+    gl_Position = ProjMat * multipliedPosition;
 
-    vertexDistance = length((modelViewMat * vec4(Position, 1.0)).xyz);
-    normal = vec4(mat3(modelViewMat) * Normal, 0);
-    vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, normal.xyz, model.Color);
+    vertexDistance = length(multipliedPosition.xyz);
+    vec3 multipliedNormal = normalize(mat3(modelPart.normalMat) * Normal);
+    vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, multipliedNormal, model.Color);
     lightMapColor = texelFetch(Sampler2, model.UV2 / 16, 0);
     overlayColor = texelFetch(Sampler1, model.UV1, 0);
     texCoord0 = UV0;
+    normal = ProjMat * vec4(multipliedNormal, 0.0);
 }

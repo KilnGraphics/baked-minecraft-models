@@ -110,15 +110,14 @@ public abstract class ModelPartMixin implements BakeablePart {
             model.a31 = new31;
             model.a32 = new32;
 
-            GlobalModelUtils.bakingData.addPartMatrix(bmm$id, this.visible ? model : null); // TODO: does this method ever get called when the part is not visible?
+            GlobalModelUtils.bakingData.addPartMatrix(bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
             ci.cancel();
         }
     }
 
     /**
-     * Used to manipulate visibility, matrices, and drawing
-     *
      * @author burgerdude
+     * @reason To manipulate visibility, matrices, and drawing
      */
     @Overwrite
     public void render(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
@@ -144,6 +143,10 @@ public abstract class ModelPartMixin implements BakeablePart {
                 for(ModelPart modelPart : this.children.values()) {
                     modelPart.render(matrices, vertexConsumer, light, overlay, red, green, blue, alpha);
                 }
+
+                Matrix4f model = matrices.peek().getModel().copy();
+                model.invert();
+                model.transpose();
 
                 matrices.pop();
             } else if (bmm$usingSmartRenderer) {

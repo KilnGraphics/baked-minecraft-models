@@ -19,7 +19,7 @@ import net.minecraft.util.math.Matrix4f;
 public class GlobalModelUtils {
 
     public static final long MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (3 * Float.BYTES) + Integer.BYTES;
-    public static final long PART_STRUCT_SIZE = 16 * Float.BYTES;
+    public static final long PART_STRUCT_SIZE = (16 * Float.BYTES) + (12 * Float.BYTES);
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
     public static final BakingData bakingData = new BakingData();

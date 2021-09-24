@@ -76,7 +76,7 @@ public abstract class ModelMixins implements VboBackedModel {
             if (bmm$currentPassBakeable) {
                 bmm$drawMode = convertedRenderLayer.getDrawMode();
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
-                GlobalModelUtils.bakingData.beginInstance(this, convertedRenderLayer, matrices.peek().getModel());
+                GlobalModelUtils.bakingData.beginInstance(this, convertedRenderLayer, matrices.peek());
             }
         } else {
             bmm$currentPassBakeable = false;

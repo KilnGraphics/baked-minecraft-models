@@ -6,9 +6,10 @@
 
 package graphics.kiln.bakedminecraftmodels.data;
 
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Matrix4f;
 
-public class MatrixList {
+public class MatrixEntryList {
 
     private Node first;
     private Node current;
@@ -18,12 +19,12 @@ public class MatrixList {
     /**
      * Adds a node with the specified properties to the end of the list
      */
-    public void add(int index, Matrix4f matrix) {
+    public void add(int index, MatrixStack.Entry matrixEntry) {
         if (index > largestIndex) {
             largestIndex = index;
         }
 
-        Node newNode = new Node(index, matrix);
+        Node newNode = new Node(index, matrixEntry);
         if (last != null) {
             last.next = newNode;
         }
@@ -71,19 +72,19 @@ public class MatrixList {
         private Node next;
 
         private final int index;
-        private final Matrix4f matrix;
+        private final MatrixStack.Entry matrixEntry;
 
-        private Node(int index, Matrix4f matrix) {
+        private Node(int index, MatrixStack.Entry matrixEntry) {
             this.index = index;
-            this.matrix = matrix;
+            this.matrixEntry = matrixEntry;
         }
 
         public int getIndex() {
             return index;
         }
 
-        public Matrix4f getMatrix() {
-            return matrix;
+        public MatrixStack.Entry getMatrixEntry() {
+            return matrixEntry;
         }
     }
 }

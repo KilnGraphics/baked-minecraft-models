@@ -18,6 +18,7 @@ public class BakedMinecraftModelsVertexFormats {
                     .put("Position", VertexFormats.POSITION_ELEMENT)
                     .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
                     .put("Normal", VertexFormats.NORMAL_ELEMENT)
+//                    .put("RawNormal", new VertexFormatElement(0, VertexFormatElement.DataType.FLOAT, VertexFormatElement.Type.GENERIC, 3))
                     .put("Padding", VertexFormats.PADDING_ELEMENT)
                     .put("PartId", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
                     .build());

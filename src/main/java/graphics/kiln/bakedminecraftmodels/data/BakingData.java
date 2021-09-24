@@ -8,7 +8,6 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
-import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderLayerAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
@@ -16,6 +15,8 @@ import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
@@ -38,8 +39,8 @@ public class BakingData {
 
     private RenderLayer currentRenderLayer;
     private VboBackedModel currentModel;
-    private Matrix4f currentBaseMatrix;
-    private MatrixList stagingMatrixList;
+    private MatrixStack.Entry currentBaseMatrixEntry;
+    private MatrixEntryList stagingMatrixEntryList;
 
     private RenderPhase.Transparency previousTransparency;
 
@@ -47,11 +48,11 @@ public class BakingData {
         internalData = new ArrayDeque<>(256);
     }
 
-    public void beginInstance(VboBackedModel model, RenderLayer renderLayer, Matrix4f baseMatrix) {
+    public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry) {
         currentModel = model;
         currentRenderLayer = renderLayer;
-        currentBaseMatrix = baseMatrix;
-        stagingMatrixList = new MatrixList();
+        currentBaseMatrixEntry = baseMatrixEntry;
+        stagingMatrixEntryList = new MatrixEntryList();
     }
 
     public void endInstance(float red, float green, float blue, float alpha, int overlay, int light) {
@@ -77,11 +78,11 @@ public class BakingData {
         internalData.peekLast()
                 .computeIfAbsent(currentRenderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(currentModel, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(currentBaseMatrix, stagingMatrixList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+                .add(new BakingData.PerInstanceData(currentBaseMatrixEntry, stagingMatrixEntryList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
-    public void addPartMatrix(int index, Matrix4f partMatrix) {
-        stagingMatrixList.add(index, partMatrix);
+    public void addPartMatrix(int index, MatrixStack.Entry matrixEntry) {
+        stagingMatrixEntryList.add(index, matrixEntry);
     }
 
     public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
@@ -121,7 +122,7 @@ public class BakingData {
         internalData.clear();
     }
 
-    private record PerInstanceData(Matrix4f baseMatrix, MatrixList partMatrices, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
+    private record PerInstanceData(MatrixStack.Entry baseMatrixEntry, MatrixEntryList partMatrices, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
             long modelPboPointer = modelPbo.getPointer();
@@ -142,48 +143,63 @@ public class BakingData {
             // if the provided matrix is null, we know that it's meant to not be visible, so write a matrix of 0s.
             int matrixCount = partMatrices.getLargestIndex() + 1;
             boolean[] indexWrittenArray = new boolean[matrixCount];
-            MatrixList.Node currentNode;
+            MatrixEntryList.Node currentNode;
             while ((currentNode = partMatrices.next()) != null) {
                 int idx = currentNode.getIndex();
                 indexWrittenArray[idx] = true;
-                Matrix4f matrix = currentNode.getMatrix();
-                if (matrix != null) {
-                    writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, matrix);
+                MatrixStack.Entry matrixEntry = currentNode.getMatrixEntry();
+                if (matrixEntry != null) {
+                    writeMatrixEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, matrixEntry);
                 } else {
-                    writeNullMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+                    writeNullEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE);
                 }
             }
 
             for (int idx = 0; idx < indexWrittenArray.length; idx++) {
                 if (!indexWrittenArray[idx]) {
-                    writeMatrix4f(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseMatrix);
+                    writeMatrixEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseMatrixEntry);
                 }
             }
             partMatrices.reset();
             partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
         }
 
-        private static void writeMatrix4f(long pointer, Matrix4f matrix) {
-            MemoryUtil.memPutFloat(pointer, matrix.a00);
-            MemoryUtil.memPutFloat(pointer + 4, matrix.a10);
-            MemoryUtil.memPutFloat(pointer + 8, matrix.a20);
-            MemoryUtil.memPutFloat(pointer + 12, matrix.a30);
-            MemoryUtil.memPutFloat(pointer + 16, matrix.a01);
-            MemoryUtil.memPutFloat(pointer + 20, matrix.a11);
-            MemoryUtil.memPutFloat(pointer + 24, matrix.a21);
-            MemoryUtil.memPutFloat(pointer + 28, matrix.a31);
-            MemoryUtil.memPutFloat(pointer + 32, matrix.a02);
-            MemoryUtil.memPutFloat(pointer + 36, matrix.a12);
-            MemoryUtil.memPutFloat(pointer + 40, matrix.a22);
-            MemoryUtil.memPutFloat(pointer + 44, matrix.a32);
-            MemoryUtil.memPutFloat(pointer + 48, matrix.a03);
-            MemoryUtil.memPutFloat(pointer + 52, matrix.a13);
-            MemoryUtil.memPutFloat(pointer + 56, matrix.a23);
-            MemoryUtil.memPutFloat(pointer + 60, matrix.a33);
+        private static void writeMatrixEntry(long pointer, MatrixStack.Entry matrixEntry) {
+            Matrix4f model = matrixEntry.getModel();
+            MemoryUtil.memPutFloat(pointer, model.a00);
+            MemoryUtil.memPutFloat(pointer + 4, model.a10);
+            MemoryUtil.memPutFloat(pointer + 8, model.a20);
+            MemoryUtil.memPutFloat(pointer + 12, model.a30);
+            MemoryUtil.memPutFloat(pointer + 16, model.a01);
+            MemoryUtil.memPutFloat(pointer + 20, model.a11);
+            MemoryUtil.memPutFloat(pointer + 24, model.a21);
+            MemoryUtil.memPutFloat(pointer + 28, model.a31);
+            MemoryUtil.memPutFloat(pointer + 32, model.a02);
+            MemoryUtil.memPutFloat(pointer + 36, model.a12);
+            MemoryUtil.memPutFloat(pointer + 40, model.a22);
+            MemoryUtil.memPutFloat(pointer + 44, model.a32);
+            MemoryUtil.memPutFloat(pointer + 48, model.a03);
+            MemoryUtil.memPutFloat(pointer + 52, model.a13);
+            MemoryUtil.memPutFloat(pointer + 56, model.a23);
+            MemoryUtil.memPutFloat(pointer + 60, model.a33);
+
+            Matrix3f normal = matrixEntry.getNormal();
+            MemoryUtil.memPutFloat(pointer + 64, normal.a00);
+            MemoryUtil.memPutFloat(pointer + 68, normal.a10);
+            MemoryUtil.memPutFloat(pointer + 72, normal.a20);
+            // padding
+            MemoryUtil.memPutFloat(pointer + 80, normal.a01);
+            MemoryUtil.memPutFloat(pointer + 84, normal.a11);
+            MemoryUtil.memPutFloat(pointer + 88, normal.a21);
+            // padding
+            MemoryUtil.memPutFloat(pointer + 96, normal.a02);
+            MemoryUtil.memPutFloat(pointer + 100, normal.a12);
+            MemoryUtil.memPutFloat(pointer + 104, normal.a22);
+            // padding
         }
 
-        private static void writeNullMatrix4f(long pointer) {
-            MemoryUtil.memSet(pointer, 0, 64);
+        private static void writeNullEntry(long pointer) {
+            MemoryUtil.memSet(pointer, 0, GlobalModelUtils.PART_STRUCT_SIZE);
         }
     }
 
