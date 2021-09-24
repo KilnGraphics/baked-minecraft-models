@@ -83,32 +83,72 @@ public abstract class ModelPartMixin implements BakeablePart {
             float rot21 = sx * cy;
             float rot22 = cx * cy;
 
-            float new00 = model.a00 * rot00 + model.a01 * rot10 + model.a02 * rot20;
-            float new01 = model.a00 * rot01 + model.a01 * rot11 + model.a02 * rot21;
-            float new02 = model.a00 * rot02 + model.a01 * rot12 + model.a02 * rot22;
-            float new10 = model.a10 * rot00 + model.a11 * rot10 + model.a12 * rot20;
-            float new11 = model.a10 * rot01 + model.a11 * rot11 + model.a12 * rot21;
-            float new12 = model.a10 * rot02 + model.a11 * rot12 + model.a12 * rot22;
-            float new20 = model.a20 * rot00 + model.a21 * rot10 + model.a22 * rot20;
-            float new21 = model.a20 * rot01 + model.a21 * rot11 + model.a22 * rot21;
-            float new22 = model.a20 * rot02 + model.a21 * rot12 + model.a22 * rot22;
-            float new30 = model.a30 * rot00 + model.a31 * rot10 + model.a32 * rot20;
-            float new31 = model.a30 * rot01 + model.a31 * rot11 + model.a32 * rot21;
-            float new32 = model.a30 * rot02 + model.a31 * rot12 + model.a32 * rot22;
+            float newModel00 = model.a00 * rot00 + model.a01 * rot10 + model.a02 * rot20;
+            float newModel01 = model.a00 * rot01 + model.a01 * rot11 + model.a02 * rot21;
+            float newModel02 = model.a00 * rot02 + model.a01 * rot12 + model.a02 * rot22;
+            float newModel10 = model.a10 * rot00 + model.a11 * rot10 + model.a12 * rot20;
+            float newModel11 = model.a10 * rot01 + model.a11 * rot11 + model.a12 * rot21;
+            float newModel12 = model.a10 * rot02 + model.a11 * rot12 + model.a12 * rot22;
+            float newModel20 = model.a20 * rot00 + model.a21 * rot10 + model.a22 * rot20;
+            float newModel21 = model.a20 * rot01 + model.a21 * rot11 + model.a22 * rot21;
+            float newModel22 = model.a20 * rot02 + model.a21 * rot12 + model.a22 * rot22;
+            float newModel30 = model.a30 * rot00 + model.a31 * rot10 + model.a32 * rot20;
+            float newModel31 = model.a30 * rot01 + model.a31 * rot11 + model.a32 * rot21;
+            float newModel32 = model.a30 * rot02 + model.a31 * rot12 + model.a32 * rot22;
 
             Matrix3f normal = currentStackEntry.getNormal();
-            model.a00 = normal.a00 = new00;
-            model.a01 = normal.a01 = new01;
-            model.a02 = normal.a02 = new02;
-            model.a10 = normal.a10 = new10;
-            model.a11 = normal.a11 = new11;
-            model.a12 = normal.a12 = new12;
-            model.a20 = normal.a20 = new20;
-            model.a21 = normal.a21 = new21;
-            model.a22 = normal.a22 = new22;
-            model.a30 = new30;
-            model.a31 = new31;
-            model.a32 = new32;
+            // TODO: are the checks really faster?
+            if (model.a00 == normal.a00 && model.a01 == normal.a01 && model.a02 == normal.a02) {
+                normal.a00 = newModel00;
+                normal.a01 = newModel01;
+                normal.a02 = newModel02;
+            } else {
+                float newNormal00 = normal.a00 * rot00 + normal.a01 * rot10 + normal.a02 * rot20;
+                float newNormal01 = normal.a00 * rot01 + normal.a01 * rot11 + normal.a02 * rot21;
+                float newNormal02 = normal.a00 * rot02 + normal.a01 * rot12 + normal.a02 * rot22;
+                normal.a00 = newNormal00;
+                normal.a01 = newNormal01;
+                normal.a02 = newNormal02;
+            }
+
+            if (model.a10 == normal.a10 && model.a11 == normal.a11 && model.a12 == normal.a12) {
+                normal.a10 = newModel10;
+                normal.a11 = newModel11;
+                normal.a12 = newModel12;
+            } else {
+                float newNormal10 = normal.a10 * rot00 + normal.a11 * rot10 + normal.a12 * rot20;
+                float newNormal11 = normal.a10 * rot01 + normal.a11 * rot11 + normal.a12 * rot21;
+                float newNormal12 = normal.a10 * rot02 + normal.a11 * rot12 + normal.a12 * rot22;
+                normal.a10 = newNormal10;
+                normal.a11 = newNormal11;
+                normal.a12 = newNormal12;
+            }
+
+            if (model.a20 == normal.a20 && model.a21 == normal.a21 && model.a22 == normal.a22) {
+                normal.a20 = newModel20;
+                normal.a21 = newModel21;
+                normal.a22 = newModel22;
+            } else {
+                float newNormal20 = normal.a20 * rot00 + normal.a21 * rot10 + normal.a22 * rot20;
+                float newNormal21 = normal.a20 * rot01 + normal.a21 * rot11 + normal.a22 * rot21;
+                float newNormal22 = normal.a20 * rot02 + normal.a21 * rot12 + normal.a22 * rot22;
+                normal.a20 = newNormal20;
+                normal.a21 = newNormal21;
+                normal.a22 = newNormal22;
+            }
+
+            model.a00 = newModel00;
+            model.a01 = newModel01;
+            model.a02 = newModel02;
+            model.a10 = newModel10;
+            model.a11 = newModel11;
+            model.a12 = newModel12;
+            model.a20 = newModel20;
+            model.a21 = newModel21;
+            model.a22 = newModel22;
+            model.a30 = newModel30;
+            model.a31 = newModel31;
+            model.a32 = newModel32;
 
             GlobalModelUtils.bakingData.addPartMatrix(bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
             ci.cancel();
