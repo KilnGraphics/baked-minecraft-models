@@ -6,6 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.data;
 
+import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
@@ -25,7 +26,7 @@ import java.io.Closeable;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class BakingData implements Closeable {
+public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
 
     /**
      * Slice current instances on transparency where order is required.
@@ -33,12 +34,13 @@ public class BakingData implements Closeable {
      */
     public static final boolean TRANSPARENCY_SLICING = true;
 
+    private final Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> opaqueSection;
     /**
      * Each map in the deque represents a separate ordered section, which is required for transparency ordering.
      * For each model in the map, it has its own map where each RenderLayer has a list of instances. This is
      * because we can only batch instances with the same RenderLayer and model.
      */
-    private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> internalData;
+    private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> orderedTransparencySections;
 
     private final ExecutorService uploaderService;
     private final SectionedPersistentBuffer modelPbo;
@@ -55,7 +57,8 @@ public class BakingData implements Closeable {
     public BakingData(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
         this.modelPbo = modelPbo;
         this.partPbo = partPbo;
-        internalData = new ArrayDeque<>(256);
+        opaqueSection = new LinkedHashMap<>();
+        orderedTransparencySections = new ArrayDeque<>(256);
         uploaderService = Executors.newSingleThreadExecutor(r -> new Thread(r, "BakingDataUploader"));
         currentTasks = new ArrayDeque<>(32);
     }
@@ -73,34 +76,35 @@ public class BakingData implements Closeable {
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
         int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
 
+        Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
-        if (internalData.size() == 0) {
-            addNewSplit();
-        } else if (TRANSPARENCY_SLICING && currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
-            String currentTransparencyName = currentTransparencyAccessor.getName();
-            String previousTransparencyName = previousTransparencyAccessor.getName();
-            // additive can be unordered and still have the correct output
-            if (!currentTransparencyName.equals("no_transparency") && !(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
-                writeLastSplitAsync();
+        if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
+            renderSection = opaqueSection;
+        } else {
+            if (orderedTransparencySections.size() == 0) {
                 addNewSplit();
+            } else if (TRANSPARENCY_SLICING && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
+                String currentTransparencyName = currentTransparencyAccessor.getName();
+                String previousTransparencyName = previousTransparencyAccessor.getName();
+                // additive can be unordered and still have the correct output
+                if (!(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
+                    addNewSplit();
+                }
             }
+
+            renderSection = orderedTransparencySections.peekLast();
         }
         previousTransparency = currentTransparency;
 
-        internalData.peekLast()
+        renderSection
                 .computeIfAbsent(currentRenderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(currentModel, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
                 .add(new BakingData.PerInstanceData(currentBaseMatrixEntry, stagingMatrixEntryList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
-    private void writeLastSplitAsync() {
-        Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> lastSplitData = internalData.peekLast();
-        currentTasks.add(uploaderService.submit(() -> writeSplitData(lastSplitData)));
-    }
-
     private void addNewSplit() {
-        internalData.add(new LinkedHashMap<>());
+        orderedTransparencySections.add(new LinkedHashMap<>());
     }
 
     private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> splitData) {
@@ -117,37 +121,28 @@ public class BakingData implements Closeable {
         stagingMatrixEntryList.add(index, matrixEntry);
     }
 
-    public void waitFinishWrite() {
-        Future<?> currentTask;
-        while ((currentTask = currentTasks.poll()) != null) {
-            try {
-                currentTask.get(20, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                BakedMinecraftModels.LOGGER.error("Baking upload task interrupted", e);
-            } catch (ExecutionException e) {
-                BakedMinecraftModels.LOGGER.error("Baking upload task failed execution", e);
-            } catch (TimeoutException e) {
-                BakedMinecraftModels.LOGGER.error("Baking upload task timed out", e);
-            }
-        }
+    public void writeData() {
+        // TODO OPT: re-make this async by returning pointers to buffer sections and making things atomic
 
-        // this is for the last split that wasn't added to the queue.
-        // it makes more sense just to do it on this thread than make the executor do it.
-        writeSplitData(internalData.peekLast());
+        writeSplitData(opaqueSection);
+
+        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> transparencySection : orderedTransparencySections) {
+            writeSplitData(transparencySection);
+        }
     }
 
-    public Deque<Map<RenderLayer, Map<VboBackedModel, List<?>>>> getInternalData() {
-        return (Deque<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) internalData;
+    public Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>> iterator() {
+        return (Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
     }
 
     public boolean isEmptyShallow() {
-        return internalData.isEmpty();
+        return opaqueSection.isEmpty() && orderedTransparencySections.isEmpty();
     }
 
     public boolean isEmptyDeep() {
-        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : internalData) {
-            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
-                for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
+        for (Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : this) {
+            for (Map<VboBackedModel, List<?>> perRenderLayerData : perOrderedSectionData.values()) {
+                for (List<?> perModelData : perRenderLayerData.values()) {
                     if (perModelData.size() > 0) {
                         return false;
                     }
@@ -158,7 +153,8 @@ public class BakingData implements Closeable {
     }
 
     public void reset() {
-        internalData.clear();
+        opaqueSection.clear();
+        orderedTransparencySections.clear();
     }
 
     @Override
