@@ -9,7 +9,6 @@ package graphics.kiln.bakedminecraftmodels.gl;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
-import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsShaderManager;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.model.InstancedRenderDispatcher;
@@ -40,22 +39,14 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final long PART_PBO_SIZE = 9175040L; // 8.75 MiB
     public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
 
-    private static SectionedPersistentBuffer PART_PBO;
-    private static SectionedPersistentBuffer MODEL_PBO;
-    private static SectionedSyncObjects SYNC_OBJECTS = new SectionedSyncObjects(BUFFER_SECTIONS);
+    public final SectionedPersistentBuffer partPbo;
+    public final SectionedPersistentBuffer modelPbo;
+    public final SectionedSyncObjects syncObjects;
 
-    private static SectionedPersistentBuffer getOrCreatePartPbo() {
-        if (PART_PBO == null) {
-            PART_PBO = createSsboPersistentBuffer(PART_PBO_SIZE);
-        }
-        return PART_PBO;
-    }
-
-    private static SectionedPersistentBuffer getOrCreateModelPbo() {
-        if (MODEL_PBO == null) {
-            MODEL_PBO = createSsboPersistentBuffer(MODEL_PBO_SIZE);
-        }
-        return MODEL_PBO;
+    public GlSsboRenderDispacher() {
+        partPbo = createSsboPersistentBuffer(PART_PBO_SIZE);
+        modelPbo = createSsboPersistentBuffer(MODEL_PBO_SIZE);
+        syncObjects = new SectionedSyncObjects(BUFFER_SECTIONS);
     }
 
     private static SectionedPersistentBuffer createSsboPersistentBuffer(long ssboSize) {
@@ -73,10 +64,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     
     public void renderQueues() {
         if (!GlobalModelUtils.bakingData.isEmptyShallow()) {
-            SectionedPersistentBuffer partPbo = getOrCreatePartPbo();
-            SectionedPersistentBuffer modelPbo = getOrCreateModelPbo();
 
-            long currentPartSyncObject = SYNC_OBJECTS.getCurrentSyncObject();
+            long currentPartSyncObject = syncObjects.getCurrentSyncObject();
 
             if (currentPartSyncObject != MemoryUtil.NULL) {
                 int waitResult = GL32C.glClientWaitSync(currentPartSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 10000000); // 10 seconds
@@ -88,7 +77,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
             long modelSectionStartPos = modelPbo.getCurrentSection() * modelPbo.getSectionSize();
 
-            GlobalModelUtils.bakingData.writeToBuffer(modelPbo, partPbo);
+            GlobalModelUtils.bakingData.waitFinishWrite();
 
             GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
             GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partPbo.getPositionOffset());
@@ -99,7 +88,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             if (currentPartSyncObject != MemoryUtil.NULL) {
                 GL32C.glDeleteSync(currentPartSyncObject);
             }
-            SYNC_OBJECTS.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+            syncObjects.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getPositionOffset());
             GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getPositionOffset());
@@ -108,7 +97,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             DebugInfo.currentModelBufferSize = modelPbo.getPositionOffset();
             partPbo.nextSection();
             modelPbo.nextSection();
-            SYNC_OBJECTS.nextSection();
+            syncObjects.nextSection();
 
             int instanceOffset = 0;
 

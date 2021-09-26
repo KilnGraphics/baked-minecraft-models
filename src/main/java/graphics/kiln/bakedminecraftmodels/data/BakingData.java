@@ -6,6 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.data;
 
+import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
@@ -20,9 +21,11 @@ import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
+import java.io.Closeable;
 import java.util.*;
+import java.util.concurrent.*;
 
-public class BakingData {
+public class BakingData implements Closeable {
 
     /**
      * Slice current instances on transparency where order is required.
@@ -37,6 +40,11 @@ public class BakingData {
      */
     private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> internalData;
 
+    private final ExecutorService uploaderService;
+    private final SectionedPersistentBuffer modelPbo;
+    private final SectionedPersistentBuffer partPbo;
+    private final Queue<Future<?>> currentTasks;
+
     private RenderLayer currentRenderLayer;
     private VboBackedModel currentModel;
     private MatrixStack.Entry currentBaseMatrixEntry;
@@ -44,8 +52,12 @@ public class BakingData {
 
     private RenderPhase.Transparency previousTransparency;
 
-    public BakingData() {
+    public BakingData(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
+        this.modelPbo = modelPbo;
+        this.partPbo = partPbo;
         internalData = new ArrayDeque<>(256);
+        uploaderService = Executors.newSingleThreadExecutor(r -> new Thread(r, "BakingDataUploader"));
+        currentTasks = new ArrayDeque<>(32);
     }
 
     public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry) {
@@ -64,13 +76,14 @@ public class BakingData {
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
         if (internalData.size() == 0) {
-            internalData.add(new LinkedHashMap<>());
+            addNewSplit();
         } else if (TRANSPARENCY_SLICING && currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
             String currentTransparencyName = currentTransparencyAccessor.getName();
             String previousTransparencyName = previousTransparencyAccessor.getName();
             // additive can be unordered and still have the correct output
             if (!currentTransparencyName.equals("no_transparency") && !(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
-                internalData.add(new LinkedHashMap<>());
+                writeLastSplitAsync();
+                addNewSplit();
             }
         }
         previousTransparency = currentTransparency;
@@ -81,20 +94,46 @@ public class BakingData {
                 .add(new BakingData.PerInstanceData(currentBaseMatrixEntry, stagingMatrixEntryList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
+    private void writeLastSplitAsync() {
+        Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> lastSplitData = internalData.peekLast();
+        currentTasks.add(uploaderService.submit(() -> writeSplitData(lastSplitData)));
+    }
+
+    private void addNewSplit() {
+        internalData.add(new LinkedHashMap<>());
+    }
+
+    private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> splitData) {
+        for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : splitData.values()) {
+            for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
+                for (PerInstanceData perInstanceData : perModelData) {
+                    perInstanceData.writeToBuffer(modelPbo, partPbo);
+                }
+            }
+        }
+    }
+
     public void addPartMatrix(int index, MatrixStack.Entry matrixEntry) {
         stagingMatrixEntryList.add(index, matrixEntry);
     }
 
-    public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : internalData) {
-            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
-                for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
-                    for (PerInstanceData perInstanceData : perModelData) {
-                        perInstanceData.writeToBuffer(modelPbo, partPbo);
-                    }
-                }
+    public void waitFinishWrite() {
+        Future<?> currentTask;
+        while ((currentTask = currentTasks.poll()) != null) {
+            try {
+                currentTask.get(20, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                BakedMinecraftModels.LOGGER.error("Baking upload task interrupted", e);
+            } catch (ExecutionException e) {
+                BakedMinecraftModels.LOGGER.error("Baking upload task failed execution", e);
+            } catch (TimeoutException e) {
+                BakedMinecraftModels.LOGGER.error("Baking upload task timed out", e);
             }
         }
+
+        // this is for the last split that wasn't added to the queue.
+        // it makes more sense just to do it on this thread than make the executor do it.
+        writeSplitData(internalData.peekLast());
     }
 
     public Deque<Map<RenderLayer, Map<VboBackedModel, List<?>>>> getInternalData() {
@@ -110,16 +149,21 @@ public class BakingData {
             for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
                 for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
                     if (perModelData.size() > 0) {
-                        return true;
+                        return false;
                     }
                 }
             }
         }
-        return false;
+        return true;
     }
 
     public void reset() {
         internalData.clear();
+    }
+
+    @Override
+    public void close() {
+        uploaderService.shutdownNow();
     }
 
     private record PerInstanceData(MatrixStack.Entry baseMatrixEntry, MatrixEntryList partMatrices, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
