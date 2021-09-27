@@ -45,7 +45,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final ExecutorService uploaderService;
     private final SectionedPersistentBuffer modelPbo;
     private final SectionedPersistentBuffer partPbo;
-    private final Queue<Future<?>> currentTasks;
 
     private RenderLayer currentRenderLayer;
     private VboBackedModel currentModel;
@@ -60,7 +59,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
         uploaderService = Executors.newSingleThreadExecutor(r -> new Thread(r, "BakingDataUploader"));
-        currentTasks = new ArrayDeque<>(32);
     }
 
     public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry) {
