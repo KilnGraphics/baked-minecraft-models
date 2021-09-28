@@ -156,8 +156,9 @@ public abstract class ModelPartMixin implements BakeablePart {
     }
 
     /**
+     * Used to manipulate visibility, matrices, and drawing
+     *
      * @author burgerdude
-     * @reason To manipulate visibility, matrices, and drawing
      */
     @Overwrite
     public void render(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
