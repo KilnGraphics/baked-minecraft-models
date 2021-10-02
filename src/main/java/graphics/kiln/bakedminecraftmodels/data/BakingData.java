@@ -7,13 +7,12 @@
 package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
-import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
+import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
-import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
@@ -24,7 +23,8 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
 
