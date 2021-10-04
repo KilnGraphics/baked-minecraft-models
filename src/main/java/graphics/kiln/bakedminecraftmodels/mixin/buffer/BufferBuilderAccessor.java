@@ -16,8 +16,6 @@ import net.minecraft.client.render.VertexFormat;
 
 @Mixin(BufferBuilder.class)
 public interface BufferBuilderAccessor {
-    @Accessor
-    VertexFormat getFormat();
 
     @Accessor
     ByteBuffer getBuffer();

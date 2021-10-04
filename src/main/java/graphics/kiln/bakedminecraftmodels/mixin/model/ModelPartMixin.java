@@ -8,6 +8,7 @@ package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.access.BakeablePart;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
+import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -32,6 +33,9 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Unique
     private boolean bmm$usingSmartRenderer;
+
+    @Unique
+    private VboBackedModel bmm$parentModel;
 
     @Shadow
     public boolean visible;
@@ -164,7 +168,14 @@ public abstract class ModelPartMixin implements BakeablePart {
     public void render(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
         if (!this.cuboids.isEmpty() || !this.children.isEmpty()) {
             boolean rotateOnly = vertexConsumer == null;
-            bmm$usingSmartRenderer = (rotateOnly || vertexConsumer instanceof SmartBufferBuilderWrapper) && MinecraftClient.getInstance().getWindow() != null;
+            SmartBufferBuilderWrapper smartBufferBuilderWrapper = null;
+            if (vertexConsumer instanceof SmartBufferBuilderWrapper converted) {
+                smartBufferBuilderWrapper = converted;
+                // this gets set only when the vbo is being created, but that should be ok
+                // TODO: it may be bad if a subclass causes this to change
+                bmm$parentModel = converted.getCurrentModel();
+            }
+            bmm$usingSmartRenderer = (rotateOnly || smartBufferBuilderWrapper != null) && MinecraftClient.getInstance().getWindow() != null;
 
             // force render when constructing the vbo
             if (this.visible || (!rotateOnly && bmm$usingSmartRenderer)) {
@@ -174,7 +185,7 @@ public abstract class ModelPartMixin implements BakeablePart {
 
                 if (bmm$usingSmartRenderer) {
                     if (!rotateOnly) {
-                        ((SmartBufferBuilderWrapper) vertexConsumer).setId(this.getId());
+                        smartBufferBuilderWrapper.setId(this.getId());
                         this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
                     }
                 } else {
@@ -192,7 +203,7 @@ public abstract class ModelPartMixin implements BakeablePart {
         }
     }
 
-    private static void recurseSetNullMatrix(ModelPart modelPart) {
+    private void recurseSetNullMatrix(ModelPart modelPart) {
         if ((Object) modelPart instanceof ModelPartMixin modelPartMixin) {
             GlobalModelUtils.bakingData.addPartMatrix(modelPartMixin.getId(), null);
             for (ModelPart child : modelPartMixin.children.values()) {

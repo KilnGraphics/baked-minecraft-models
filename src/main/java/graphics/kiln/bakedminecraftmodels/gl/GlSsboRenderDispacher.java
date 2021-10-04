@@ -77,25 +77,27 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
             long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
             long modelSectionStartPos = modelPbo.getCurrentSection() * modelPbo.getSectionSize();
+            long partLength = partPbo.getPositionOffset().getAcquire();
+            long modelLength = modelPbo.getPositionOffset().getAcquire();
 
             GlobalModelUtils.bakingData.writeData();
 
             GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
-            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partPbo.getPositionOffset());
+            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partLength);
 
             GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
-            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelPbo.getPositionOffset());
+            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelLength);
 
             if (currentPartSyncObject != MemoryUtil.NULL) {
                 GL32C.glDeleteSync(currentPartSyncObject);
             }
             syncObjects.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partPbo.getPositionOffset());
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelPbo.getPositionOffset());
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partLength);
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelLength);
 
-            DebugInfo.currentPartBufferSize = partPbo.getPositionOffset();
-            DebugInfo.currentModelBufferSize = modelPbo.getPositionOffset();
+            DebugInfo.currentPartBufferSize = partLength;
+            DebugInfo.currentModelBufferSize = modelLength;
             partPbo.nextSection();
             modelPbo.nextSection();
             syncObjects.nextSection();

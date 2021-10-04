@@ -64,24 +64,27 @@ public abstract class ModelMixins implements VboBackedModel {
     private VertexFormat bmm$vertexFormat;
 
     @Unique
+    private RenderLayer bmm$convertedRenderLayer;
+
+    @Unique
+    private MatrixStack.Entry bmm$baseMatrix;
+
+    @Unique
     protected boolean bmm$childBakeable() { // this will be overridden by the lowest in the hierarchy as long as it's not private
         return bmm$currentPassBakeable;
     }
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("HEAD"))
     private void updateCurrentPass(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-       if (!bmm$childBakeable() && GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
+        if (!bmm$childBakeable() && GlobalModelUtils.getNestedBufferBuilder(vertexConsumer) instanceof RenderLayerContainer renderLayerContainer) {
             RenderLayer convertedRenderLayer = BakedMinecraftModelsRenderLayerManager.tryDeriveSmartRenderLayer(renderLayerContainer.getRenderLayer());
             bmm$currentPassBakeable = convertedRenderLayer != null && MinecraftClient.getInstance().getWindow() != null;
             if (bmm$currentPassBakeable) {
                 bmm$drawMode = convertedRenderLayer.getDrawMode();
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
-                GlobalModelUtils.bakingData.beginInstance(this, convertedRenderLayer, matrices.peek());
+                bmm$convertedRenderLayer = convertedRenderLayer;
+                bmm$baseMatrix = matrices.peek();
             }
-        } else {
-            bmm$currentPassBakeable = false;
-            bmm$drawMode = null;
-            bmm$vertexFormat = null;
         }
     }
 
@@ -90,7 +93,7 @@ public abstract class ModelMixins implements VboBackedModel {
         if (getBakedVertices() != null && bmm$currentPassBakeable) {
             return null;
         } else if (bmm$currentPassBakeable) {
-            GlobalModelUtils.VBO_BUFFER_BUILDER.begin(bmm$drawMode, bmm$vertexFormat);
+            GlobalModelUtils.VBO_BUFFER_BUILDER.begin(bmm$drawMode, bmm$vertexFormat, this);
             return GlobalModelUtils.VBO_BUFFER_BUILDER;
         } else {
             return existingConsumer;
@@ -110,8 +113,13 @@ public abstract class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() != null && bmm$currentPassBakeable) {
-            GlobalModelUtils.bakingData.endInstance(red, green, blue, alpha, overlay, light);
+            GlobalModelUtils.bakingData.addInstance(this, bmm$convertedRenderLayer, bmm$baseMatrix, red, green, blue, alpha, overlay, light);
             bmm$currentPassBakeable = false; // we want this to be false by default when we start at the top again
+            // clear out variables that we don't need until next run
+            bmm$drawMode = null;
+            bmm$vertexFormat = null;
+            bmm$convertedRenderLayer = null;
+            bmm$baseMatrix = null;
         }
     }
 

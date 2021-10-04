@@ -1,89 +1,137 @@
-/*
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
-
 package graphics.kiln.bakedminecraftmodels.data;
 
+import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
+import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix3f;
+import net.minecraft.util.math.Matrix4f;
+import org.lwjgl.system.MemoryUtil;
+
+import java.util.Arrays;
 
 public class MatrixEntryList {
+    private static final int DEFAULT_SIZE = 16;
 
-    private Node first;
-    private Node current;
-    private Node last;
-    private int largestIndex;
+    private MatrixStack.Entry[] elementArray;
+    private boolean[] elementWrittenArray; // needed to track of null entries
+    private int largestPartId; // needed to write correct amount to buffer
 
-    /**
-     * Adds a node with the specified properties to the end of the list
-     */
-    public void add(int index, MatrixStack.Entry matrixEntry) {
-        if (index > largestIndex) {
-            largestIndex = index;
-        }
-
-        Node newNode = new Node(index, matrixEntry);
-        if (last != null) {
-            last.next = newNode;
-        }
-        last = newNode;
-        if (first == null) {
-            first = newNode;
-            current = newNode;
-        }
+    public MatrixEntryList(){
+        elementArray = new MatrixStack.Entry[DEFAULT_SIZE];
+        elementWrittenArray = new boolean[DEFAULT_SIZE];
     }
 
-    /**
-     * Advances the current node to the next in the list.
-     * @return the previous node, or null if there are no remaining nodes.
-     */
-    public Node next() {
-        Node old = current;
-        if (current != null) {
-            current = old.next;
+    public MatrixEntryList(int initialPartId){
+        int size;
+        if (initialPartId > DEFAULT_SIZE) {
+            size = initialPartId;
+            size |= (size >> 16);
+            size |= (size >> 8);
+            size |= (size >> 4);
+            size |= (size >> 2);
+            size |= (size >> 1);
+            size++;
+        } else {
+            size = DEFAULT_SIZE;
         }
-        return old;
+
+        elementArray = new MatrixStack.Entry[size];
+        elementWrittenArray = new boolean[size];
     }
 
-    /**
-     * Sets the current node to the first in the list.
-     */
-    public void reset() {
-        current = first;
+    public void set(int partId, MatrixStack.Entry element) {
+        if (partId > largestPartId) {
+            largestPartId = partId;
+
+            if (partId >= elementArray.length) {
+                // expand the array to the closest power of 2 that will fit the partId
+                int newSize = partId;
+                newSize |= (newSize >> 16);
+                newSize |= (newSize >> 8);
+                newSize |= (newSize >> 4);
+                newSize |= (newSize >> 2);
+                newSize |= (newSize >> 1);
+                newSize++;
+                elementWrittenArray = Arrays.copyOf(elementWrittenArray, newSize);
+                elementArray = Arrays.copyOf(elementArray, ++newSize);
+            }
+        }
+        elementWrittenArray[partId] = true;
+        elementArray[partId] = element;
     }
 
-    public int getLargestIndex() {
-        return largestIndex;
-    }
-
-    /**
-     * Removes all nodes in the list and resets the largestIndex.
-     */
     public void clear() {
-        first = null;
-        last = null;
-        // The java LinkedList class clears all the references inside the nodes, but it likely isn't needed for our case.
-        largestIndex = 0;
+        Arrays.fill(elementArray, null);
+        largestPartId = 0;
     }
 
-    public static class Node {
-        private Node next;
+    public int getLargestPartId() {
+        return largestPartId;
+    }
 
-        private final int index;
-        private final MatrixStack.Entry matrixEntry;
+    /**
+     * Writes the contents of this list to a buffer, with null entries represented
+     * as a stream of 0s, and unwritten elements represented as the base entry.
+     *
+     * @param buffer the buffer to write to
+     * @return the part index to be given to the struct of the model
+     */
+    public long writeToBuffer(SectionedPersistentBuffer buffer, MatrixStack.Entry baseMatrixEntry) {
+        int matrixCount = getLargestPartId() + 1;
+        long positionOffset = buffer.getPositionOffset().getAndAdd(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
+        long pointer = buffer.getSectionedPointer() + positionOffset;
 
-        private Node(int index, MatrixStack.Entry matrixEntry) {
-            this.index = index;
-            this.matrixEntry = matrixEntry;
+        for (int idx = 0; idx < elementArray.length; idx++) {
+            if (elementWrittenArray[idx]) {
+                MatrixStack.Entry matrixEntry = elementArray[idx];
+                if (matrixEntry != null) {
+                    writeMatrixEntry(pointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, matrixEntry);
+                } else {
+                    writeNullEntry(pointer + idx * GlobalModelUtils.PART_STRUCT_SIZE);
+                }
+            } else {
+                writeMatrixEntry(pointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseMatrixEntry);
+            }
         }
 
-        public int getIndex() {
-            return index;
-        }
+        return positionOffset / GlobalModelUtils.PART_STRUCT_SIZE;
+    }
 
-        public MatrixStack.Entry getMatrixEntry() {
-            return matrixEntry;
-        }
+    private static void writeMatrixEntry(long pointer, MatrixStack.Entry matrixEntry) {
+        Matrix4f model = matrixEntry.getModel();
+        MemoryUtil.memPutFloat(pointer, model.a00);
+        MemoryUtil.memPutFloat(pointer + 4, model.a10);
+        MemoryUtil.memPutFloat(pointer + 8, model.a20);
+        MemoryUtil.memPutFloat(pointer + 12, model.a30);
+        MemoryUtil.memPutFloat(pointer + 16, model.a01);
+        MemoryUtil.memPutFloat(pointer + 20, model.a11);
+        MemoryUtil.memPutFloat(pointer + 24, model.a21);
+        MemoryUtil.memPutFloat(pointer + 28, model.a31);
+        MemoryUtil.memPutFloat(pointer + 32, model.a02);
+        MemoryUtil.memPutFloat(pointer + 36, model.a12);
+        MemoryUtil.memPutFloat(pointer + 40, model.a22);
+        MemoryUtil.memPutFloat(pointer + 44, model.a32);
+        MemoryUtil.memPutFloat(pointer + 48, model.a03);
+        MemoryUtil.memPutFloat(pointer + 52, model.a13);
+        MemoryUtil.memPutFloat(pointer + 56, model.a23);
+        MemoryUtil.memPutFloat(pointer + 60, model.a33);
+
+        Matrix3f normal = matrixEntry.getNormal();
+        MemoryUtil.memPutFloat(pointer + 64, normal.a00);
+        MemoryUtil.memPutFloat(pointer + 68, normal.a10);
+        MemoryUtil.memPutFloat(pointer + 72, normal.a20);
+        // padding
+        MemoryUtil.memPutFloat(pointer + 80, normal.a01);
+        MemoryUtil.memPutFloat(pointer + 84, normal.a11);
+        MemoryUtil.memPutFloat(pointer + 88, normal.a21);
+        // padding
+        MemoryUtil.memPutFloat(pointer + 96, normal.a02);
+        MemoryUtil.memPutFloat(pointer + 100, normal.a12);
+        MemoryUtil.memPutFloat(pointer + 104, normal.a22);
+        // padding
+    }
+
+    private static void writeNullEntry(long pointer) {
+        MemoryUtil.memSet(pointer, 0, GlobalModelUtils.PART_STRUCT_SIZE);
     }
 }

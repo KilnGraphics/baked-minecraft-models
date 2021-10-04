@@ -6,6 +6,8 @@
 
 package graphics.kiln.bakedminecraftmodels.ssbo;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 // TODO: abstract this but still use long for getPointer
 public class SectionedPersistentBuffer {
     private final long pointer;
@@ -15,7 +17,7 @@ public class SectionedPersistentBuffer {
 
     private int currentSection = 0;
     private long sectionOffset = 0;
-    private long positionOffset = 0;
+    private AtomicLong positionOffset = new AtomicLong();
 
     public SectionedPersistentBuffer(long pointer, int name, int sectionCount, long sectionSize) {
         this.pointer = pointer;
@@ -24,9 +26,10 @@ public class SectionedPersistentBuffer {
         this.sectionSize = sectionSize;
     }
 
-    public long getPointer() {
-        return pointer + sectionOffset + positionOffset;
+    public long getSectionedPointer() {
+        return pointer + sectionOffset;
     }
+
 
     public int getName() {
         return name;
@@ -44,14 +47,10 @@ public class SectionedPersistentBuffer {
         currentSection++;
         currentSection %= sectionCount;
         sectionOffset = getCurrentSection() * getSectionSize();
-        positionOffset = 0;
+        positionOffset.setRelease(0);
     }
 
-    public void addPositionOffset(long positionOffset) {
-        this.positionOffset += positionOffset;
-    }
-
-    public long getPositionOffset() {
+    public AtomicLong getPositionOffset() {
         return positionOffset;
     }
 

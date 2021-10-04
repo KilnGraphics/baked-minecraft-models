@@ -7,6 +7,8 @@
 package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
+import com.google.common.util.concurrent.Futures;
+import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
@@ -17,14 +19,14 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix3f;
-import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
 
@@ -45,11 +47,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final ExecutorService uploaderService;
     private final SectionedPersistentBuffer modelPbo;
     private final SectionedPersistentBuffer partPbo;
-
-    private RenderLayer currentRenderLayer;
-    private VboBackedModel currentModel;
-    private MatrixStack.Entry currentBaseMatrixEntry;
-    private MatrixEntryList stagingMatrixEntryList;
+    private final Deque<MatrixEntryList> recycledLists;
 
     private RenderPhase.Transparency previousTransparency;
 
@@ -58,17 +56,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         this.partPbo = partPbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
-        uploaderService = Executors.newSingleThreadExecutor(r -> new Thread(r, "BakingDataUploader"));
+        uploaderService = Executors.newFixedThreadPool(2);
+        recycledLists = new ArrayDeque<>(16);
     }
 
-    public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry) {
-        currentModel = model;
-        currentRenderLayer = renderLayer;
-        currentBaseMatrixEntry = baseMatrixEntry;
-        stagingMatrixEntryList = new MatrixEntryList();
+    public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
+
     }
 
-    public void endInstance(float red, float green, float blue, float alpha, int overlay, int light) {
+    public void endInstance() {
         int overlayX = overlay & 0xFFFF;
         int overlayY = overlay >> 16 & 0xFFFF;
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
@@ -76,7 +72,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
         Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
-        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) currentRenderLayer).getPhases())).getTransparency();
+        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
         if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
             renderSection = opaqueSection;
         } else {
@@ -95,10 +91,25 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
         previousTransparency = currentTransparency;
 
+        Future<Long> futurePartIndex;
+        MatrixEntryList matrixEntryList = currentModelsMatricesMap.remove(model);
+        if (matrixEntryList != null) {
+            futurePartIndex = uploaderService.submit(() -> {
+                long partIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
+                matrixEntryList.clear();
+                recycledLists.addLast(matrixEntryList);
+                return partIndex;
+            });
+        } else {
+            // this can happen if the model didn't render any modelparts,
+            // in which case it makes sense to not try to render it anyway.
+            return;
+        }
+
         renderSection
-                .computeIfAbsent(currentRenderLayer, unused -> new LinkedHashMap<>())
-                .computeIfAbsent(currentModel, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(currentBaseMatrixEntry, stagingMatrixEntryList, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+                .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
+                .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
+                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
     private void addNewSplit() {
@@ -109,14 +120,23 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : splitData.values()) {
             for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
                 for (PerInstanceData perInstanceData : perModelData) {
-                    perInstanceData.writeToBuffer(modelPbo, partPbo);
+                    perInstanceData.writeToBuffer(modelPbo);
                 }
             }
         }
     }
 
-    public void addPartMatrix(int index, MatrixStack.Entry matrixEntry) {
-        stagingMatrixEntryList.add(index, matrixEntry);
+    public void addPartMatrix(VboBackedModel model, int partId, MatrixStack.Entry matrixEntry) {
+        MatrixEntryList list = currentModelsMatricesMap.get(model);
+        if ()
+        currentModelsMatricesMap.computeIfAbsent(model, unused -> {
+            MatrixEntryList recycledList = recycledLists.pollFirst();
+            if (recycledList != null) {
+                return recycledList;
+            } else {
+                return new MatrixEntryList(partId);
+            }
+        }).set(partId, matrixEntry);
     }
 
     public void writeData() {
@@ -160,85 +180,86 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         uploaderService.shutdownNow();
     }
 
-    private record PerInstanceData(MatrixStack.Entry baseMatrixEntry, MatrixEntryList partMatrices, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
+    private static final class PerInstanceData {
+        private final float red;
+        private final float green;
+        private final float blue;
+        private final float alpha;
+        private final int overlayX;
+        private final int overlayY;
+        private final int lightX;
+        private final int lightY;
 
-        public void writeToBuffer(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-            long modelPboPointer = modelPbo.getPointer();
-            long partPboPointer = partPbo.getPointer();
-            MemoryUtil.memPutFloat(modelPboPointer, red);
-            MemoryUtil.memPutFloat(modelPboPointer + 4, green);
-            MemoryUtil.memPutFloat(modelPboPointer + 8, blue);
-            MemoryUtil.memPutFloat(modelPboPointer + 12, alpha);
-            MemoryUtil.memPutInt(modelPboPointer + 16, overlayX);
-            MemoryUtil.memPutInt(modelPboPointer + 20, overlayY);
-            MemoryUtil.memPutInt(modelPboPointer + 24, lightX);
-            MemoryUtil.memPutInt(modelPboPointer + 28, lightY);
-            // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
-            MemoryUtil.memPutInt(modelPboPointer + 44, (int) (partPbo.getPositionOffset() / GlobalModelUtils.PART_STRUCT_SIZE));
-            modelPbo.addPositionOffset(GlobalModelUtils.MODEL_STRUCT_SIZE);
+        private Future<Long> partArrayIndex;
 
-            // keep an array of written matrices. if a matrix slot in the array hasn't been written to, write the default one.
-            // if the provided matrix is null, we know that it's meant to not be visible, so write a matrix of 0s.
-            int matrixCount = partMatrices.getLargestIndex() + 1;
-            boolean[] indexWrittenArray = new boolean[matrixCount];
-            MatrixEntryList.Node currentNode;
-            while ((currentNode = partMatrices.next()) != null) {
-                int idx = currentNode.getIndex();
-                indexWrittenArray[idx] = true;
-                MatrixStack.Entry matrixEntry = currentNode.getMatrixEntry();
-                if (matrixEntry != null) {
-                    writeMatrixEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, matrixEntry);
-                } else {
-                    writeNullEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE);
-                }
+        private PerInstanceData(float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
+            this.red = red;
+            this.green = green;
+            this.blue = blue;
+            this.alpha = alpha;
+            this.overlayX = overlayX;
+            this.overlayY = overlayY;
+            this.lightX = lightX;
+            this.lightY = lightY;
+        }
+
+        public void setFuturePartArrayIndex(Future<Long> partArrayIndex) {
+            this.partArrayIndex = partArrayIndex;
+        }
+
+        public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
+            long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
+            long pointer = modelPbo.getSectionedPointer() + positionOffset;
+            MemoryUtil.memPutFloat(pointer, red);
+            MemoryUtil.memPutFloat(pointer + 4, green);
+            MemoryUtil.memPutFloat(pointer + 8, blue);
+            MemoryUtil.memPutFloat(pointer + 12, alpha);
+            MemoryUtil.memPutInt(pointer + 16, overlayX);
+            MemoryUtil.memPutInt(pointer + 20, overlayY);
+            MemoryUtil.memPutInt(pointer + 24, lightX);
+            MemoryUtil.memPutInt(pointer + 28, lightY);
+
+            try {
+                // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
+                MemoryUtil.memPutInt(pointer + 44, partArrayIndex.get().intValue());
+            } catch (ExecutionException | InterruptedException e) {
+                BakedMinecraftModels.LOGGER.error("Exception while waiting for part matrices offset", e);
             }
-
-            for (int idx = 0; idx < indexWrittenArray.length; idx++) {
-                if (!indexWrittenArray[idx]) {
-                    writeMatrixEntry(partPboPointer + idx * GlobalModelUtils.PART_STRUCT_SIZE, baseMatrixEntry);
-                }
-            }
-            partMatrices.reset();
-            partPbo.addPositionOffset(matrixCount * GlobalModelUtils.PART_STRUCT_SIZE);
         }
 
-        private static void writeMatrixEntry(long pointer, MatrixStack.Entry matrixEntry) {
-            Matrix4f model = matrixEntry.getModel();
-            MemoryUtil.memPutFloat(pointer, model.a00);
-            MemoryUtil.memPutFloat(pointer + 4, model.a10);
-            MemoryUtil.memPutFloat(pointer + 8, model.a20);
-            MemoryUtil.memPutFloat(pointer + 12, model.a30);
-            MemoryUtil.memPutFloat(pointer + 16, model.a01);
-            MemoryUtil.memPutFloat(pointer + 20, model.a11);
-            MemoryUtil.memPutFloat(pointer + 24, model.a21);
-            MemoryUtil.memPutFloat(pointer + 28, model.a31);
-            MemoryUtil.memPutFloat(pointer + 32, model.a02);
-            MemoryUtil.memPutFloat(pointer + 36, model.a12);
-            MemoryUtil.memPutFloat(pointer + 40, model.a22);
-            MemoryUtil.memPutFloat(pointer + 44, model.a32);
-            MemoryUtil.memPutFloat(pointer + 48, model.a03);
-            MemoryUtil.memPutFloat(pointer + 52, model.a13);
-            MemoryUtil.memPutFloat(pointer + 56, model.a23);
-            MemoryUtil.memPutFloat(pointer + 60, model.a33);
-
-            Matrix3f normal = matrixEntry.getNormal();
-            MemoryUtil.memPutFloat(pointer + 64, normal.a00);
-            MemoryUtil.memPutFloat(pointer + 68, normal.a10);
-            MemoryUtil.memPutFloat(pointer + 72, normal.a20);
-            // padding
-            MemoryUtil.memPutFloat(pointer + 80, normal.a01);
-            MemoryUtil.memPutFloat(pointer + 84, normal.a11);
-            MemoryUtil.memPutFloat(pointer + 88, normal.a21);
-            // padding
-            MemoryUtil.memPutFloat(pointer + 96, normal.a02);
-            MemoryUtil.memPutFloat(pointer + 100, normal.a12);
-            MemoryUtil.memPutFloat(pointer + 104, normal.a22);
-            // padding
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (PerInstanceData) obj;
+            return Float.floatToIntBits(this.red) == Float.floatToIntBits(that.red) &&
+                    Float.floatToIntBits(this.green) == Float.floatToIntBits(that.green) &&
+                    Float.floatToIntBits(this.blue) == Float.floatToIntBits(that.blue) &&
+                    Float.floatToIntBits(this.alpha) == Float.floatToIntBits(that.alpha) &&
+                    this.overlayX == that.overlayX &&
+                    this.overlayY == that.overlayY &&
+                    this.lightX == that.lightX &&
+                    this.lightY == that.lightY;
         }
 
-        private static void writeNullEntry(long pointer) {
-            MemoryUtil.memSet(pointer, 0, GlobalModelUtils.PART_STRUCT_SIZE);
+        @Override
+        public int hashCode() {
+            return Objects.hash(red, green, blue, alpha, overlayX, overlayY, lightX, lightY);
         }
+
+        @Override
+        public String toString() {
+            return "PerInstanceData[" +
+                    "red=" + red + ", " +
+                    "green=" + green + ", " +
+                    "blue=" + blue + ", " +
+                    "alpha=" + alpha + ", " +
+                    "overlayX=" + overlayX + ", " +
+                    "overlayY=" + overlayY + ", " +
+                    "lightX=" + lightX + ", " +
+                    "lightY=" + lightY + ']';
+        }
+
     }
 
 }
