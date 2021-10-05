@@ -6,7 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.mixin.buffer;
 
-import graphics.kiln.bakedminecraftmodels.vertex.RenderLayerContainer;
+import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;

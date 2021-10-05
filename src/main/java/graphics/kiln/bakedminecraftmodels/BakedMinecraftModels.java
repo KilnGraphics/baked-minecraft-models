@@ -29,6 +29,7 @@ public class BakedMinecraftModels implements ClientModInitializer {
     // RenderDoc Part SSBO Format:
     /*
      mat4 modelViewMat;
+     mat3x4 normalMat;
     */
 
     // RenderDoc Model SSBO Format:

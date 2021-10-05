@@ -15,6 +15,7 @@
     "buffer.SpriteTexturedVertexConsumerAccessor",
     "buffer.VertexBufferAccessor",
     "buffer.VertexConsumerProviderImmediateMixin",
+    "model.MatrixStackMixin",
     "model.ModelMixins",
     "model.ModelPartDataMixin",
     "model.ModelPartMixin",

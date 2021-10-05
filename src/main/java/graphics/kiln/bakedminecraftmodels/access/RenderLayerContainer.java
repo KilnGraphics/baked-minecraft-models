@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-package graphics.kiln.bakedminecraftmodels.vertex;
+package graphics.kiln.bakedminecraftmodels.access;
 
 import net.minecraft.client.render.RenderLayer;
 

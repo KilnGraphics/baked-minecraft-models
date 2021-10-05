@@ -75,12 +75,12 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                 }
             }
 
+            GlobalModelUtils.bakingData.writeData();
+
             long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
             long modelSectionStartPos = modelPbo.getCurrentSection() * modelPbo.getSectionSize();
             long partLength = partPbo.getPositionOffset().getAcquire();
             long modelLength = modelPbo.getPositionOffset().getAcquire();
-
-            GlobalModelUtils.bakingData.writeData();
 
             GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
             GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partLength);

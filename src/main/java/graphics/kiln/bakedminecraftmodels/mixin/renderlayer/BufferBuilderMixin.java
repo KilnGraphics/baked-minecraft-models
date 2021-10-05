@@ -6,7 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.mixin.renderlayer;
 
-import graphics.kiln.bakedminecraftmodels.vertex.RenderLayerContainer;
+import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import org.spongepowered.asm.mixin.Mixin;

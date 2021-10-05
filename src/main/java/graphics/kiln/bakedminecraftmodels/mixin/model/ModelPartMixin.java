@@ -7,6 +7,7 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.access.BakeablePart;
+import graphics.kiln.bakedminecraftmodels.access.ModelContainer;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
@@ -33,9 +34,6 @@ public abstract class ModelPartMixin implements BakeablePart {
 
     @Unique
     private boolean bmm$usingSmartRenderer;
-
-    @Unique
-    private VboBackedModel bmm$parentModel;
 
     @Shadow
     public boolean visible;
@@ -68,7 +66,7 @@ public abstract class ModelPartMixin implements BakeablePart {
     public void setSsboRotation(MatrixStack matrices, CallbackInfo ci) {
         if (bmm$usingSmartRenderer) {
             MatrixStack.Entry currentStackEntry = matrices.peek();
-            Matrix4f model = currentStackEntry.getModel();
+            Matrix4f modelMat = currentStackEntry.getModel();
 
             float sx = MathHelper.sin(pitch);
             float cx = MathHelper.cos(pitch);
@@ -87,74 +85,78 @@ public abstract class ModelPartMixin implements BakeablePart {
             float rot21 = sx * cy;
             float rot22 = cx * cy;
 
-            float newModel00 = model.a00 * rot00 + model.a01 * rot10 + model.a02 * rot20;
-            float newModel01 = model.a00 * rot01 + model.a01 * rot11 + model.a02 * rot21;
-            float newModel02 = model.a00 * rot02 + model.a01 * rot12 + model.a02 * rot22;
-            float newModel10 = model.a10 * rot00 + model.a11 * rot10 + model.a12 * rot20;
-            float newModel11 = model.a10 * rot01 + model.a11 * rot11 + model.a12 * rot21;
-            float newModel12 = model.a10 * rot02 + model.a11 * rot12 + model.a12 * rot22;
-            float newModel20 = model.a20 * rot00 + model.a21 * rot10 + model.a22 * rot20;
-            float newModel21 = model.a20 * rot01 + model.a21 * rot11 + model.a22 * rot21;
-            float newModel22 = model.a20 * rot02 + model.a21 * rot12 + model.a22 * rot22;
-            float newModel30 = model.a30 * rot00 + model.a31 * rot10 + model.a32 * rot20;
-            float newModel31 = model.a30 * rot01 + model.a31 * rot11 + model.a32 * rot21;
-            float newModel32 = model.a30 * rot02 + model.a31 * rot12 + model.a32 * rot22;
+            float newModel00 = modelMat.a00 * rot00 + modelMat.a01 * rot10 + modelMat.a02 * rot20;
+            float newModel01 = modelMat.a00 * rot01 + modelMat.a01 * rot11 + modelMat.a02 * rot21;
+            float newModel02 = modelMat.a00 * rot02 + modelMat.a01 * rot12 + modelMat.a02 * rot22;
+            float newModel10 = modelMat.a10 * rot00 + modelMat.a11 * rot10 + modelMat.a12 * rot20;
+            float newModel11 = modelMat.a10 * rot01 + modelMat.a11 * rot11 + modelMat.a12 * rot21;
+            float newModel12 = modelMat.a10 * rot02 + modelMat.a11 * rot12 + modelMat.a12 * rot22;
+            float newModel20 = modelMat.a20 * rot00 + modelMat.a21 * rot10 + modelMat.a22 * rot20;
+            float newModel21 = modelMat.a20 * rot01 + modelMat.a21 * rot11 + modelMat.a22 * rot21;
+            float newModel22 = modelMat.a20 * rot02 + modelMat.a21 * rot12 + modelMat.a22 * rot22;
+            float newModel30 = modelMat.a30 * rot00 + modelMat.a31 * rot10 + modelMat.a32 * rot20;
+            float newModel31 = modelMat.a30 * rot01 + modelMat.a31 * rot11 + modelMat.a32 * rot21;
+            float newModel32 = modelMat.a30 * rot02 + modelMat.a31 * rot12 + modelMat.a32 * rot22;
 
-            Matrix3f normal = currentStackEntry.getNormal();
+            Matrix3f normalMat = currentStackEntry.getNormal();
             // TODO: are the checks really faster?
-            if (model.a00 == normal.a00 && model.a01 == normal.a01 && model.a02 == normal.a02) {
-                normal.a00 = newModel00;
-                normal.a01 = newModel01;
-                normal.a02 = newModel02;
+            if (modelMat.a00 == normalMat.a00 && modelMat.a01 == normalMat.a01 && modelMat.a02 == normalMat.a02) {
+                normalMat.a00 = newModel00;
+                normalMat.a01 = newModel01;
+                normalMat.a02 = newModel02;
             } else {
-                float newNormal00 = normal.a00 * rot00 + normal.a01 * rot10 + normal.a02 * rot20;
-                float newNormal01 = normal.a00 * rot01 + normal.a01 * rot11 + normal.a02 * rot21;
-                float newNormal02 = normal.a00 * rot02 + normal.a01 * rot12 + normal.a02 * rot22;
-                normal.a00 = newNormal00;
-                normal.a01 = newNormal01;
-                normal.a02 = newNormal02;
+                float newNormal00 = normalMat.a00 * rot00 + normalMat.a01 * rot10 + normalMat.a02 * rot20;
+                float newNormal01 = normalMat.a00 * rot01 + normalMat.a01 * rot11 + normalMat.a02 * rot21;
+                float newNormal02 = normalMat.a00 * rot02 + normalMat.a01 * rot12 + normalMat.a02 * rot22;
+                normalMat.a00 = newNormal00;
+                normalMat.a01 = newNormal01;
+                normalMat.a02 = newNormal02;
             }
 
-            if (model.a10 == normal.a10 && model.a11 == normal.a11 && model.a12 == normal.a12) {
-                normal.a10 = newModel10;
-                normal.a11 = newModel11;
-                normal.a12 = newModel12;
+            if (modelMat.a10 == normalMat.a10 && modelMat.a11 == normalMat.a11 && modelMat.a12 == normalMat.a12) {
+                normalMat.a10 = newModel10;
+                normalMat.a11 = newModel11;
+                normalMat.a12 = newModel12;
             } else {
-                float newNormal10 = normal.a10 * rot00 + normal.a11 * rot10 + normal.a12 * rot20;
-                float newNormal11 = normal.a10 * rot01 + normal.a11 * rot11 + normal.a12 * rot21;
-                float newNormal12 = normal.a10 * rot02 + normal.a11 * rot12 + normal.a12 * rot22;
-                normal.a10 = newNormal10;
-                normal.a11 = newNormal11;
-                normal.a12 = newNormal12;
+                float newNormal10 = normalMat.a10 * rot00 + normalMat.a11 * rot10 + normalMat.a12 * rot20;
+                float newNormal11 = normalMat.a10 * rot01 + normalMat.a11 * rot11 + normalMat.a12 * rot21;
+                float newNormal12 = normalMat.a10 * rot02 + normalMat.a11 * rot12 + normalMat.a12 * rot22;
+                normalMat.a10 = newNormal10;
+                normalMat.a11 = newNormal11;
+                normalMat.a12 = newNormal12;
             }
 
-            if (model.a20 == normal.a20 && model.a21 == normal.a21 && model.a22 == normal.a22) {
-                normal.a20 = newModel20;
-                normal.a21 = newModel21;
-                normal.a22 = newModel22;
+            if (modelMat.a20 == normalMat.a20 && modelMat.a21 == normalMat.a21 && modelMat.a22 == normalMat.a22) {
+                normalMat.a20 = newModel20;
+                normalMat.a21 = newModel21;
+                normalMat.a22 = newModel22;
             } else {
-                float newNormal20 = normal.a20 * rot00 + normal.a21 * rot10 + normal.a22 * rot20;
-                float newNormal21 = normal.a20 * rot01 + normal.a21 * rot11 + normal.a22 * rot21;
-                float newNormal22 = normal.a20 * rot02 + normal.a21 * rot12 + normal.a22 * rot22;
-                normal.a20 = newNormal20;
-                normal.a21 = newNormal21;
-                normal.a22 = newNormal22;
+                float newNormal20 = normalMat.a20 * rot00 + normalMat.a21 * rot10 + normalMat.a22 * rot20;
+                float newNormal21 = normalMat.a20 * rot01 + normalMat.a21 * rot11 + normalMat.a22 * rot21;
+                float newNormal22 = normalMat.a20 * rot02 + normalMat.a21 * rot12 + normalMat.a22 * rot22;
+                normalMat.a20 = newNormal20;
+                normalMat.a21 = newNormal21;
+                normalMat.a22 = newNormal22;
             }
 
-            model.a00 = newModel00;
-            model.a01 = newModel01;
-            model.a02 = newModel02;
-            model.a10 = newModel10;
-            model.a11 = newModel11;
-            model.a12 = newModel12;
-            model.a20 = newModel20;
-            model.a21 = newModel21;
-            model.a22 = newModel22;
-            model.a30 = newModel30;
-            model.a31 = newModel31;
-            model.a32 = newModel32;
+            modelMat.a00 = newModel00;
+            modelMat.a01 = newModel01;
+            modelMat.a02 = newModel02;
+            modelMat.a10 = newModel10;
+            modelMat.a11 = newModel11;
+            modelMat.a12 = newModel12;
+            modelMat.a20 = newModel20;
+            modelMat.a21 = newModel21;
+            modelMat.a22 = newModel22;
+            modelMat.a30 = newModel30;
+            modelMat.a31 = newModel31;
+            modelMat.a32 = newModel32;
 
-            GlobalModelUtils.bakingData.addPartMatrix(bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
+            VboBackedModel model = ((ModelContainer) matrices).getModel();
+            // FIXME: is this always ok to do? think this is bad with skeleton holding bows
+            if (model != null) {
+                GlobalModelUtils.bakingData.addPartMatrix(model, bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
+            }
             ci.cancel();
         }
     }
@@ -171,9 +173,6 @@ public abstract class ModelPartMixin implements BakeablePart {
             SmartBufferBuilderWrapper smartBufferBuilderWrapper = null;
             if (vertexConsumer instanceof SmartBufferBuilderWrapper converted) {
                 smartBufferBuilderWrapper = converted;
-                // this gets set only when the vbo is being created, but that should be ok
-                // TODO: it may be bad if a subclass causes this to change
-                bmm$parentModel = converted.getCurrentModel();
             }
             bmm$usingSmartRenderer = (rotateOnly || smartBufferBuilderWrapper != null) && MinecraftClient.getInstance().getWindow() != null;
 
@@ -198,16 +197,16 @@ public abstract class ModelPartMixin implements BakeablePart {
 
                 matrices.pop();
             } else if (bmm$usingSmartRenderer) {
-                recurseSetNullMatrix((ModelPart) (Object) this);
+                recurseSetNullMatrix(((ModelContainer) matrices).getModel(), (ModelPart) (Object) this);
             }
         }
     }
 
-    private void recurseSetNullMatrix(ModelPart modelPart) {
+    private void recurseSetNullMatrix(VboBackedModel model, ModelPart modelPart) {
         if ((Object) modelPart instanceof ModelPartMixin modelPartMixin) {
-            GlobalModelUtils.bakingData.addPartMatrix(modelPartMixin.getId(), null);
+            GlobalModelUtils.bakingData.addPartMatrix(model, modelPartMixin.getId(), null);
             for (ModelPart child : modelPartMixin.children.values()) {
-                recurseSetNullMatrix(child);
+                recurseSetNullMatrix(model, child);
             }
         }
     }

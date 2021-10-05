@@ -6,9 +6,11 @@
 
 package graphics.kiln.bakedminecraftmodels.model;
 
+import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
 import net.minecraft.client.gl.VertexBuffer;
 
 public interface VboBackedModel {
-
     VertexBuffer getBakedVertices();
+    MatrixEntryList getCurrentMatrices();
+    void setMatrixEntryList(MatrixEntryList matrixEntryList);
 }

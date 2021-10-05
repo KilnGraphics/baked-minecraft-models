@@ -22,6 +22,7 @@ public class GlobalModelUtils {
     public static final long PART_STRUCT_SIZE = (16 * Float.BYTES) + (12 * Float.BYTES);
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
+    // FIXME: not thread safe, but making one per instance is slow
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
     public static final GlSsboRenderDispacher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispacher();
     public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPbo, INSTANCED_RENDER_DISPATCHER.partPbo);

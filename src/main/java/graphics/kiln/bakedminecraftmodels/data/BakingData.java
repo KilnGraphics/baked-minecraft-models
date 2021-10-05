@@ -7,7 +7,6 @@
 package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.Futures;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
@@ -15,6 +14,7 @@ import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
+import io.netty.util.internal.shaded.org.jctools.queues.ConcurrentCircularArrayQueue;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
@@ -23,10 +23,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
 
@@ -47,7 +44,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final ExecutorService uploaderService;
     private final SectionedPersistentBuffer modelPbo;
     private final SectionedPersistentBuffer partPbo;
-    private final Deque<MatrixEntryList> recycledLists;
+    private final Deque<MatrixEntryList> matrixEntryListPool;
 
     private RenderPhase.Transparency previousTransparency;
 
@@ -56,15 +53,11 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         this.partPbo = partPbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
-        uploaderService = Executors.newFixedThreadPool(2);
-        recycledLists = new ArrayDeque<>(16);
+        uploaderService = Executors.newSingleThreadExecutor();
+        matrixEntryListPool = new ConcurrentLinkedDeque<>();
     }
 
-    public void beginInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
-
-    }
-
-    public void endInstance() {
+    public void addInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
         int overlayX = overlay & 0xFFFF;
         int overlayY = overlay >> 16 & 0xFFFF;
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
@@ -92,12 +85,13 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         previousTransparency = currentTransparency;
 
         Future<Long> futurePartIndex;
-        MatrixEntryList matrixEntryList = currentModelsMatricesMap.remove(model);
+        MatrixEntryList matrixEntryList = model.getCurrentMatrices();
+        model.setMatrixEntryList(null);
         if (matrixEntryList != null) {
             futurePartIndex = uploaderService.submit(() -> {
                 long partIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
                 matrixEntryList.clear();
-                recycledLists.addLast(matrixEntryList);
+                matrixEntryListPool.offerLast(matrixEntryList);
                 return partIndex;
             });
         } else {
@@ -127,16 +121,18 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public void addPartMatrix(VboBackedModel model, int partId, MatrixStack.Entry matrixEntry) {
-        MatrixEntryList list = currentModelsMatricesMap.get(model);
-        if ()
-        currentModelsMatricesMap.computeIfAbsent(model, unused -> {
-            MatrixEntryList recycledList = recycledLists.pollFirst();
+        MatrixEntryList list = model.getCurrentMatrices();
+        if (list == null) {
+            MatrixEntryList recycledList = matrixEntryListPool.pollFirst();
             if (recycledList != null) {
-                return recycledList;
+                list = recycledList;
             } else {
-                return new MatrixEntryList(partId);
+                list = new MatrixEntryList(partId);
             }
-        }).set(partId, matrixEntry);
+            model.setMatrixEntryList(list);
+        }
+
+        list.set(partId, matrixEntry);
     }
 
     public void writeData() {
@@ -180,32 +176,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         uploaderService.shutdownNow();
     }
 
-    private static final class PerInstanceData {
-        private final float red;
-        private final float green;
-        private final float blue;
-        private final float alpha;
-        private final int overlayX;
-        private final int overlayY;
-        private final int lightX;
-        private final int lightY;
-
-        private Future<Long> partArrayIndex;
-
-        private PerInstanceData(float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
-            this.red = red;
-            this.green = green;
-            this.blue = blue;
-            this.alpha = alpha;
-            this.overlayX = overlayX;
-            this.overlayY = overlayY;
-            this.lightX = lightX;
-            this.lightY = lightY;
-        }
-
-        public void setFuturePartArrayIndex(Future<Long> partArrayIndex) {
-            this.partArrayIndex = partArrayIndex;
-        }
+    private record PerInstanceData(Future<Long> partArrayIndex, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
             long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
@@ -225,39 +196,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             } catch (ExecutionException | InterruptedException e) {
                 BakedMinecraftModels.LOGGER.error("Exception while waiting for part matrices offset", e);
             }
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == this) return true;
-            if (obj == null || obj.getClass() != this.getClass()) return false;
-            var that = (PerInstanceData) obj;
-            return Float.floatToIntBits(this.red) == Float.floatToIntBits(that.red) &&
-                    Float.floatToIntBits(this.green) == Float.floatToIntBits(that.green) &&
-                    Float.floatToIntBits(this.blue) == Float.floatToIntBits(that.blue) &&
-                    Float.floatToIntBits(this.alpha) == Float.floatToIntBits(that.alpha) &&
-                    this.overlayX == that.overlayX &&
-                    this.overlayY == that.overlayY &&
-                    this.lightX == that.lightX &&
-                    this.lightY == that.lightY;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(red, green, blue, alpha, overlayX, overlayY, lightX, lightY);
-        }
-
-        @Override
-        public String toString() {
-            return "PerInstanceData[" +
-                    "red=" + red + ", " +
-                    "green=" + green + ", " +
-                    "blue=" + blue + ", " +
-                    "alpha=" + alpha + ", " +
-                    "overlayX=" + overlayX + ", " +
-                    "overlayY=" + overlayY + ", " +
-                    "lightX=" + lightX + ", " +
-                    "lightY=" + lightY + ']';
         }
 
     }

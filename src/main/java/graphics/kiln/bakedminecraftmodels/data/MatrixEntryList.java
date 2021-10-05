@@ -16,7 +16,7 @@ public class MatrixEntryList {
     private boolean[] elementWrittenArray; // needed to track of null entries
     private int largestPartId; // needed to write correct amount to buffer
 
-    public MatrixEntryList(){
+    public MatrixEntryList() {
         elementArray = new MatrixStack.Entry[DEFAULT_SIZE];
         elementWrittenArray = new boolean[DEFAULT_SIZE];
     }
@@ -62,6 +62,7 @@ public class MatrixEntryList {
 
     public void clear() {
         Arrays.fill(elementArray, null);
+        Arrays.fill(elementWrittenArray, false);
         largestPartId = 0;
     }
 

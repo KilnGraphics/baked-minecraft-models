@@ -7,9 +7,11 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
+import graphics.kiln.bakedminecraftmodels.access.ModelContainer;
+import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
-import graphics.kiln.bakedminecraftmodels.vertex.RenderLayerContainer;
+import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -42,16 +44,29 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
         TridentEntityModel.class, // FIXME: enchantment glint uses dual
         TurtleEntityModel.class
 })
-public abstract class ModelMixins implements VboBackedModel {
+public class ModelMixins implements VboBackedModel {
 
     @Unique
     @Nullable
     private VertexBuffer bmm$bakedVertices;
 
+    @Unique
+    private MatrixEntryList bmm$currentMatrices;
+
     @Override
     @Unique
     public VertexBuffer getBakedVertices() {
         return bmm$bakedVertices;
+    }
+
+    @Override
+    public MatrixEntryList getCurrentMatrices() {
+        return bmm$currentMatrices;
+    }
+
+    @Override
+    public void setMatrixEntryList(MatrixEntryList matrixEntryList) {
+        bmm$currentMatrices = matrixEntryList;
     }
 
     @Unique
@@ -70,6 +85,9 @@ public abstract class ModelMixins implements VboBackedModel {
     private MatrixStack.Entry bmm$baseMatrix;
 
     @Unique
+    private VboBackedModel bmm$previousStoredModel;
+
+    @Unique
     protected boolean bmm$childBakeable() { // this will be overridden by the lowest in the hierarchy as long as it's not private
         return bmm$currentPassBakeable;
     }
@@ -84,6 +102,9 @@ public abstract class ModelMixins implements VboBackedModel {
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
                 bmm$convertedRenderLayer = convertedRenderLayer;
                 bmm$baseMatrix = matrices.peek();
+                ModelContainer modelContainer = (ModelContainer) matrices;
+                bmm$previousStoredModel = modelContainer.getModel();
+                modelContainer.setModel(this);
             }
         }
     }
@@ -93,7 +114,7 @@ public abstract class ModelMixins implements VboBackedModel {
         if (getBakedVertices() != null && bmm$currentPassBakeable) {
             return null;
         } else if (bmm$currentPassBakeable) {
-            GlobalModelUtils.VBO_BUFFER_BUILDER.begin(bmm$drawMode, bmm$vertexFormat, this);
+            GlobalModelUtils.VBO_BUFFER_BUILDER.begin(bmm$drawMode, bmm$vertexFormat); // FIXME: not thread safe, could use a lock around it but may freeze program if nested model
             return GlobalModelUtils.VBO_BUFFER_BUILDER;
         } else {
             return existingConsumer;
@@ -112,14 +133,16 @@ public abstract class ModelMixins implements VboBackedModel {
 
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
-        if (getBakedVertices() != null && bmm$currentPassBakeable) {
+        if (bmm$currentPassBakeable) {
             GlobalModelUtils.bakingData.addInstance(this, bmm$convertedRenderLayer, bmm$baseMatrix, red, green, blue, alpha, overlay, light);
             bmm$currentPassBakeable = false; // we want this to be false by default when we start at the top again
-            // clear out variables that we don't need until next run
+            // reset variables that we don't need until next run
             bmm$drawMode = null;
             bmm$vertexFormat = null;
             bmm$convertedRenderLayer = null;
             bmm$baseMatrix = null;
+            ((ModelContainer) matrices).setModel(bmm$previousStoredModel);
+            bmm$previousStoredModel = null;
         }
     }
 

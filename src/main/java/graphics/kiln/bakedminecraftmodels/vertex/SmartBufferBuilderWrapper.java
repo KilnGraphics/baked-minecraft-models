@@ -7,14 +7,12 @@
 package graphics.kiln.bakedminecraftmodels.vertex;
 
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
-    private VboBackedModel currentModel;
 
     public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
         this.internalBufferBuilder = internalBufferBuilder;
@@ -81,14 +79,12 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         this.partId = partId;
     }
 
-    public void begin(VertexFormat.DrawMode drawMode, VertexFormat vertexFormat, VboBackedModel model) {
-        currentModel = model;
+    public void begin(VertexFormat.DrawMode drawMode, VertexFormat vertexFormat) {
         internalBufferBuilder.begin(drawMode, vertexFormat);
     }
 
     public void end() {
         internalBufferBuilder.end();
-        currentModel = null;
     }
 
     public void clear() {
@@ -97,10 +93,6 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
     public BufferBuilder getInternalBufferBuilder() {
         return internalBufferBuilder;
-    }
-
-    public VboBackedModel getCurrentModel() {
-        return currentModel;
     }
 
 }
