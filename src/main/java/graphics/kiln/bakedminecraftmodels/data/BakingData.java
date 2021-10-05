@@ -53,7 +53,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         this.partPbo = partPbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
-        uploaderService = Executors.newSingleThreadExecutor();
+        uploaderService = Executors.newWorkStealingPool(3);
         matrixEntryListPool = new ConcurrentLinkedDeque<>();
     }
 
@@ -88,12 +88,14 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         MatrixEntryList matrixEntryList = model.getCurrentMatrices();
         model.setMatrixEntryList(null);
         if (matrixEntryList != null) {
-            futurePartIndex = uploaderService.submit(() -> {
-                long partIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
-                matrixEntryList.clear();
-                matrixEntryListPool.offerLast(matrixEntryList);
-                return partIndex;
-            });
+//            futurePartIndex = CompletableFuture.supplyAsync(() -> matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry), uploaderService);
+//            futurePartIndex.thenRunAsync(() -> {
+//                matrixEntryList.clear();
+//                matrixEntryListPool.offerLast(matrixEntryList);
+//            }, uploaderService);
+            futurePartIndex = CompletableFuture.completedFuture(matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry));
+            matrixEntryList.clear();
+            matrixEntryListPool.offerLast(matrixEntryList);
         } else {
             // this can happen if the model didn't render any modelparts,
             // in which case it makes sense to not try to render it anyway.
