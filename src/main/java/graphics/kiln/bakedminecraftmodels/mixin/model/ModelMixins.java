@@ -127,6 +127,7 @@ public class ModelMixins implements VboBackedModel {
             GlobalModelUtils.VBO_BUFFER_BUILDER.end();
             bmm$bakedVertices = new VertexBuffer();
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
+            GlobalModelUtils.bakingData.addCloseable(bmm$bakedVertices);
             GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
         }
     }

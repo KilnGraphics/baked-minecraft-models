@@ -34,4 +34,9 @@ public class WorldRendererMixin {
         GlobalModelUtils.INSTANCED_RENDER_DISPATCHER.renderQueues();
         this.world.getProfiler().pop();
     }
+
+    @Inject(method = "close", at = @At("HEAD"))
+    private void closeVertexBuffers(CallbackInfo ci) {
+        GlobalModelUtils.bakingData.close();
+    }
 }

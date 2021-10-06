@@ -15,6 +15,8 @@ import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import io.netty.util.internal.shaded.org.jctools.queues.ConcurrentCircularArrayQueue;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
@@ -22,6 +24,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -41,7 +44,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
      */
     private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> orderedTransparencySections;
 
-    private final ExecutorService uploaderService;
+    private final Set<AutoCloseable> closeables;
     private final SectionedPersistentBuffer modelPbo;
     private final SectionedPersistentBuffer partPbo;
     private final Deque<MatrixEntryList> matrixEntryListPool;
@@ -53,8 +56,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         this.partPbo = partPbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
-        uploaderService = Executors.newWorkStealingPool(3);
-        matrixEntryListPool = new ConcurrentLinkedDeque<>();
+        closeables = new ObjectOpenHashSet<>();
+        matrixEntryListPool = new ArrayDeque<>();
     }
 
     public void addInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
@@ -84,24 +87,16 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
         previousTransparency = currentTransparency;
 
-        Future<Long> futurePartIndex;
         MatrixEntryList matrixEntryList = model.getCurrentMatrices();
+        // this can happen if the model didn't render any modelparts,
+        // in which case it makes sense to not try to render it anyway.
+        if (matrixEntryList == null) return;
         model.setMatrixEntryList(null);
-        if (matrixEntryList != null) {
-//            futurePartIndex = CompletableFuture.supplyAsync(() -> matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry), uploaderService);
-//            futurePartIndex.thenRunAsync(() -> {
-//                matrixEntryList.clear();
-//                matrixEntryListPool.offerLast(matrixEntryList);
-//            }, uploaderService);
-            futurePartIndex = CompletableFuture.completedFuture(matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry));
-            matrixEntryList.clear();
-            matrixEntryListPool.offerLast(matrixEntryList);
-        } else {
-            // this can happen if the model didn't render any modelparts,
-            // in which case it makes sense to not try to render it anyway.
-            return;
-        }
+        long futurePartIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
+        matrixEntryList.clear();
+        matrixEntryListPool.offerLast(matrixEntryList);
 
+        // TODO: make this whole thing concurrent if it needs to be
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
@@ -147,6 +142,10 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
     }
 
+    public void addCloseable(AutoCloseable closeable) {
+        closeables.add(closeable);
+    }
+
     public Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>> iterator() {
         return (Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
     }
@@ -175,10 +174,16 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
     @Override
     public void close() {
-        uploaderService.shutdownNow();
+        for (AutoCloseable closeable : closeables) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                BakedMinecraftModels.LOGGER.error("Error closing baking data closeables", e);
+            }
+        }
     }
 
-    private record PerInstanceData(Future<Long> partArrayIndex, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
+    private record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
             long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
@@ -191,13 +196,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             MemoryUtil.memPutInt(pointer + 20, overlayY);
             MemoryUtil.memPutInt(pointer + 24, lightX);
             MemoryUtil.memPutInt(pointer + 28, lightY);
-
-            try {
-                // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
-                MemoryUtil.memPutInt(pointer + 44, partArrayIndex.get().intValue());
-            } catch (ExecutionException | InterruptedException e) {
-                BakedMinecraftModels.LOGGER.error("Exception while waiting for part matrices offset", e);
-            }
+            // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
+            MemoryUtil.memPutInt(pointer + 44, (int) partArrayIndex);
         }
 
     }

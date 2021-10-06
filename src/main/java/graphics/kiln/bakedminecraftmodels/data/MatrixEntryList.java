@@ -61,8 +61,9 @@ public class MatrixEntryList {
     }
 
     public void clear() {
-        Arrays.fill(elementArray, null);
-        Arrays.fill(elementWrittenArray, false);
+        // only fill modified portions of arrays
+        Arrays.fill(elementArray, 0, largestPartId, null);
+        Arrays.fill(elementWrittenArray, 0, largestPartId, false);
         largestPartId = 0;
     }
 
