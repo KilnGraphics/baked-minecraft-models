@@ -59,7 +59,7 @@ public class MatrixEntryList {
                 newSize |= (newSize >> 1);
                 newSize++;
                 elementWrittenArray = Arrays.copyOf(elementWrittenArray, newSize);
-                elementArray = Arrays.copyOf(elementArray, ++newSize);
+                elementArray = Arrays.copyOf(elementArray, newSize);
             }
         }
         elementWrittenArray[partId] = true;
