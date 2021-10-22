@@ -17,7 +17,7 @@ public class SectionedPersistentBuffer {
 
     private int currentSection = 0;
     private long sectionOffset = 0;
-    private AtomicLong positionOffset = new AtomicLong();
+    private final AtomicLong positionOffset = new AtomicLong();
 
     public SectionedPersistentBuffer(long pointer, int name, int sectionCount, long sectionSize) {
         this.pointer = pointer;
