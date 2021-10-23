@@ -68,7 +68,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
         Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
-        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
+        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor) (Object) (((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
         if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
             renderSection = opaqueSection;
         } else {
@@ -77,8 +77,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             } else if (TRANSPARENCY_SLICING && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
                 String currentTransparencyName = currentTransparencyAccessor.getName();
                 String previousTransparencyName = previousTransparencyAccessor.getName();
-                // additive can be unordered and still have the correct output
-                if (!(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
+                // TODO comment
+                //noinspection StringEquality - The name strings are compile-time constants and will be interned
+                if (currentTransparencyName == previousTransparencyName) {
                     addNewSplit();
                 }
             }
@@ -183,7 +184,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
     }
 
-    private record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
+    private record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
+                                   int overlayY, int lightX, int lightY) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
             long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);

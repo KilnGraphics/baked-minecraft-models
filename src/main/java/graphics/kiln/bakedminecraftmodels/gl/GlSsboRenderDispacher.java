@@ -11,26 +11,23 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
+import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
+import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
+import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedSyncObjects;
-import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.VertexBuffer;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.Shader;
-import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.*;
 import net.minecraft.client.util.Window;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
@@ -39,15 +36,29 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final int BUFFER_SECTIONS = 3;
     public static final long PART_PBO_SIZE = 9175040L; // 8.75 MiB
     public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
+    public static final long TRANSPARENT_EBO_SIZE = 512 * 1024; // 512 KiB - TODO figure out what a reasonable value is
 
     public final SectionedPersistentBuffer partPbo;
     public final SectionedPersistentBuffer modelPbo;
     public final SectionedSyncObjects syncObjects;
+    public final SectionedPersistentBuffer transparencyEbo; // FIXME not a PBO
 
     public GlSsboRenderDispacher() {
         partPbo = createSsboPersistentBuffer(PART_PBO_SIZE);
         modelPbo = createSsboPersistentBuffer(MODEL_PBO_SIZE);
         syncObjects = new SectionedSyncObjects(BUFFER_SECTIONS);
+
+        // FIXME triple-buffer
+        int name = GlStateManager._glGenBuffers();
+        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, name);
+        long fullSize = TRANSPARENT_EBO_SIZE * BUFFER_SECTIONS;
+        ARBBufferStorage.nglBufferStorage(GL15.GL_ELEMENT_ARRAY_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+        transparencyEbo = new SectionedPersistentBuffer(
+                GL30C.nglMapBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
+                name,
+                BUFFER_SECTIONS,
+                TRANSPARENT_EBO_SIZE
+        );
     }
 
     private static SectionedPersistentBuffer createSsboPersistentBuffer(long ssboSize) {
@@ -62,7 +73,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                 ssboSize
         );
     }
-    
+
     public void renderQueues() {
         if (!GlobalModelUtils.bakingData.isEmptyShallow()) {
 
@@ -108,7 +119,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             VertexBuffer currentVertexBuffer = null;
             BufferRenderer.unbindAll();
 
-            for(Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : GlobalModelUtils.bakingData) {
+            for (Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : GlobalModelUtils.bakingData) {
 
                 for (Map.Entry<RenderLayer, Map<VboBackedModel, List<?>>> perRenderLayerData : perOrderedSectionData.entrySet()) {
                     RenderLayer nextRenderLayer = perRenderLayerData.getKey();
@@ -123,6 +134,10 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
                     Shader shader = RenderSystem.getShader();
 
+                    //noinspection ConstantConditions
+                    RenderPhase.Transparency transparency = ((MultiPhaseParametersAccessor) (Object)
+                            (((MultiPhaseRenderPassAccessor) nextRenderLayer).getPhases())).getTransparency();
+
                     for (Map.Entry<VboBackedModel, List<?>> perModelData : perRenderLayerData.getValue().entrySet()) {
                         VertexBuffer nextVertexBuffer = perModelData.getKey().getBakedVertices();
                         VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
@@ -133,12 +148,16 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                             currentVertexBuffer = nextVertexBuffer;
                             vertexBufferAccessor.invokeBindVertexArray();
                             vertexBufferAccessor.invokeBind();
+                            // TODO only bind for transparencies?
+                            GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
                             currentVertexBuffer.getElementFormat().startDrawing();
                         } else if (!currentVertexBuffer.equals(nextVertexBuffer)) {
                             currentVertexBuffer.getElementFormat().endDrawing();
                             currentVertexBuffer = nextVertexBuffer;
                             vertexBufferAccessor.invokeBindVertexArray();
                             vertexBufferAccessor.invokeBind();
+                            // TODO only bind for transparencies?
+                            GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
                             currentVertexBuffer.getElementFormat().startDrawing();
                         }
 
@@ -195,10 +214,18 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                             instanceOffsetUniform.set(instanceOffset);
                         }
 
-                        RenderSystem.setupShaderLights(shader);
-                        shader.bind();
-                        GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
-                        shader.unbind();
+                        // Since the string is a constant both here and in RenderPhase.class, both will have been interned
+                        // into Java's string pool. Thus, their addresses will always be the same, and there's no need to
+                        // use the expensive string.equals check when a simple pointer compare will do.
+                        //noinspection StringEquality
+                        if (transparency.toString() != "no_transparency" && transparency.toString() != "additive_transparency") {
+                            drawSortedFakeInstanced(nextRenderLayer, shader, vertexBufferAccessor, perModelData);
+                        } else {
+                            RenderSystem.setupShaderLights(shader);
+                            shader.bind();
+                            GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
+                            shader.unbind();
+                        }
 
                         instanceOffset += instanceCount;
 
@@ -220,5 +247,62 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             GlobalModelUtils.bakingData.reset();
         }
     }
-    
+
+    /**
+     * Do a 'fake' glDrawElementsInstanced call, with vertex sorting.
+     * <p>
+     * This builds a EBO containing all the vertices for all the elements to draw. The notable
+     * thing here is that we have control of the draw order - we can sort the elements by depth
+     * from the camera, and use this to batch the rendering of transparent objects.
+     */
+    private void drawSortedFakeInstanced(RenderLayer renderLayer, Shader shader, VertexBufferAccessor vba, Map.Entry<VboBackedModel, List<?>> perModelData) {
+        int instanceCount = perModelData.getValue().size();
+        int vertexCount = vba.getVertexCount();
+        VertexFormat.DrawMode drawMode = vba.getDrawMode();
+
+        int eboLen = 0;
+        int eboOffset = 0; // TODO triple-buffer
+
+        VertexBuffer vb = (VertexBuffer) vba;
+
+        int[] template = new int[]{
+                0,
+                1,
+                2,
+                2,
+                3,
+                0,
+        };
+
+        long ptr = transparencyEbo.getSectionedPointer();
+        MemoryUtil.memSet(ptr, 0, 500);
+        for (int i = 0; i < instanceCount; i++) {
+            for (int j = 0; j < vertexCount; j++) {
+                int innerOffset = template[j % 6] + j / 6 * 4;
+                MemoryUtil.memPutInt(ptr + eboLen, innerOffset + vertexCount * i); // FIXME
+                eboLen += 4;
+            }
+        }
+
+        GlUniform countUniform = shader.getUniform("InstanceVertCount");
+        if (countUniform != null) {
+            countUniform.set(vertexCount);
+        }
+
+        // FIXME triple-buffer the EBO
+        // TODO move this to the top of renderQueue with the SSBOs
+        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, transparencyEbo.getName());
+        GL30C.glFlushMappedBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, eboOffset, eboLen);
+
+        // TODO do we need to disable the VAO here? It's not bound in the shader, can it still
+        //  cause issues?
+
+        RenderSystem.setupShaderLights(shader);
+        shader.bind();
+        // type was vba.getVertexFormat().count
+        GL31C.glDrawElements(drawMode.mode, vertexCount * instanceCount, GL15.GL_UNSIGNED_INT, eboOffset);
+        shader.unbind();
+
+        // TODO Unbind EBO?
+    }
 }

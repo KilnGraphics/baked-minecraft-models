@@ -4,14 +4,9 @@
     "srcrgb": "srcalpha",
     "dstrgb": "1-srcalpha"
   },
-  "vertex": "rendertype_entity_cutout_no_cull_instanced",
+  "vertex": "rendertype_entity_translucent_smart",
   "fragment": "rendertype_entity_translucent",
-  "attributes": [
-    "Position",
-    "UV0",
-    "Normal",
-    "PartId"
-  ],
+  "attributes": [],
   "samplers": [
     { "name": "Sampler0" },
     { "name": "Sampler1" },
@@ -25,6 +20,7 @@
     { "name": "FogStart", "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "FogEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
     { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
-    { "name": "InstanceOffset", "type": "int", "count": 1, "values": [ 0 ] }
+    { "name": "InstanceOffset", "type": "int", "count": 1, "values": [ 0 ] },
+    { "name": "InstanceVertCount", "type": "int", "count": 1, "values": [ 0 ] }
   ]
 }

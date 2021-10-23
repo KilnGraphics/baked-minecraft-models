@@ -23,6 +23,9 @@ public interface VertexBufferAccessor {
     @Accessor
     VertexFormat.IntType getVertexFormat();
 
+    @Accessor
+    int getVertexBufferId();
+
     @Invoker
     void invokeBindVertexArray();
 
