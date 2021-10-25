@@ -192,7 +192,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 BakedMinecraftModels.LOGGER.error("Error closing baking data closeables", e);
             }
         }
-        // TODO we don't clear closeables?
+        closeables.clear();
     }
 
     public record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
