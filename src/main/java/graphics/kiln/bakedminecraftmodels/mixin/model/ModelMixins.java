@@ -8,10 +8,11 @@ package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import graphics.kiln.bakedminecraftmodels.access.ModelContainer;
+import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
+import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
-import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.RenderLayer;
@@ -22,11 +23,16 @@ import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
 import net.minecraft.client.util.math.MatrixStack;
 import org.jetbrains.annotations.Nullable;
-import org.spongepowered.asm.mixin.*;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.system.MemoryUtil;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.nio.ByteBuffer;
 
 @Mixin({AnimalModel.class,
         BookModel.class, // TODO OPT: inject into renderBook instead of render so it works on block models
@@ -53,10 +59,19 @@ public class ModelMixins implements VboBackedModel {
     @Unique
     private MatrixEntryList bmm$currentMatrices;
 
+    @Unique
+    private int[] bmm$bakedIndices;
+
     @Override
     @Unique
     public VertexBuffer getBakedVertices() {
         return bmm$bakedVertices;
+    }
+
+    @Override
+    @Unique
+    public int[] getBakedIndices() {
+        return bmm$bakedIndices;
     }
 
     @Override
@@ -129,6 +144,30 @@ public class ModelMixins implements VboBackedModel {
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
             GlobalModelUtils.bakingData.addCloseable(bmm$bakedVertices);
             GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
+
+            // If we're transparent then we need to grab the EBO contents
+            // Yes, reading the data back from the GPU is a kinda horrible way of doing this, but none of the alternatives
+            // look particularly appealing either. Since we're only doing this once per at startup it should be fine.
+            // TODO only do this if we're actually transparent, otherwise it's a waste of memory
+            VertexBufferAccessor vba = (VertexBufferAccessor) getBakedVertices();
+            int eboSize = vba.getVertexFormat().size * vba.getVertexCount(); // Mappings are wrong, should be 'index' not 'vertex'
+            ByteBuffer eboData = MemoryUtil.memAlloc(eboSize);
+            getBakedVertices().bind();
+            GL20.glGetBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, eboData);
+            VertexBuffer.unbind();
+
+            // Convert it to shorts
+            // It seems sufficently unlikely that anyeo
+            bmm$bakedIndices = new int[vba.getVertexCount()];
+            for (int i = 0; i < bmm$bakedIndices.length; i++) {
+                bmm$bakedIndices[i] = switch (vba.getVertexFormat()) {
+                    case BYTE -> (short) eboData.get();
+                    case SHORT -> eboData.getShort();
+                    case INT -> eboData.getInt();
+                };
+            }
+
+            MemoryUtil.memFree(eboData);
         }
     }
 

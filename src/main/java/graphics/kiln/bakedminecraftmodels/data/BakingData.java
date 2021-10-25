@@ -8,6 +8,7 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
+import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
@@ -25,10 +26,11 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.IntBuffer;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
+public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<BakingData.PerInstanceData>>>> {
 
     /**
      * Slice current instances on transparency where order is required.
@@ -97,11 +99,19 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         matrixEntryList.clear();
         matrixEntryListPool.offerLast(matrixEntryList);
 
+        IntBuffer ebo;
+        if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
+            // TODO sort the verts by depth
+            ebo = IntBuffer.wrap(model.getBakedIndices());
+        } else {
+            ebo = null;
+        }
+
         // TODO: make this whole thing concurrent if it needs to be
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, ebo));
     }
 
     private void addNewSplit() {
@@ -147,8 +157,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         closeables.add(closeable);
     }
 
-    public Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>> iterator() {
-        return (Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
+    public Iterator<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> iterator() {
+        return Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
     }
 
     public boolean isEmptyShallow() {
@@ -156,8 +166,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public boolean isEmptyDeep() {
-        for (Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : this) {
-            for (Map<VboBackedModel, List<?>> perRenderLayerData : perOrderedSectionData.values()) {
+        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : this) {
+            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
                 for (List<?> perModelData : perRenderLayerData.values()) {
                     if (perModelData.size() > 0) {
                         return false;
@@ -182,10 +192,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 BakedMinecraftModels.LOGGER.error("Error closing baking data closeables", e);
             }
         }
+        // TODO we don't clear closeables?
     }
 
-    private record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
-                                   int overlayY, int lightX, int lightY) {
+    public record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
+                                  int overlayY, int lightX, int lightY,
+                                  // The EBO contents. Formatted as {a,b,c,float-as-int-distance-to-cam} tuples
+                                  // TODO convert to a @param comment
+                                  IntBuffer eboData
+    ) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
             long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
