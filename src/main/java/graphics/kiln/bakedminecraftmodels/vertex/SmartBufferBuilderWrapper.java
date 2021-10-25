@@ -11,8 +11,13 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
+import java.nio.FloatBuffer;
+
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
+
+    // Keep an on-CPU copy of the vertex data - this is used to prepare transparency sorting data
+    private FloatBuffer vertexPositions = FloatBuffer.allocate(64 * 3);
 
     public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
         this.internalBufferBuilder = internalBufferBuilder;
@@ -20,6 +25,16 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
     @Override
     public VertexConsumer vertex(double x, double y, double z) {
+        // Keep track of the vertex positions with an on-CPU buffer
+        // Only store them as single-precision floats, that's plenty for transparency sorting
+        if (!vertexPositions.hasRemaining()) {
+            FloatBuffer newFB = FloatBuffer.allocate(vertexPositions.capacity() + 128 * 3);
+            vertexPositions.flip();
+            newFB.put(vertexPositions);
+            vertexPositions = newFB;
+        }
+        vertexPositions.put((float) x).put((float) y).put((float) z);
+
         return internalBufferBuilder.vertex(x, y, z);
     }
 
@@ -67,7 +82,8 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
     public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
         BufferBuilderAccessor originalAccessor = (BufferBuilderAccessor) internalBufferBuilder;
 
-        internalBufferBuilder.vertex(x, y, z).texture(u, v).normal(normalX, normalY, normalZ);
+        vertex(x, y, z); // Make sure we call this, to record the verts for the transparency stuff
+        internalBufferBuilder.texture(u, v).normal(normalX, normalY, normalZ);
         originalAccessor.getBuffer().putInt(originalAccessor.getElementOffset(), partId);
         internalBufferBuilder.nextElement();
         internalBufferBuilder.next();
@@ -85,14 +101,19 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
     public void end() {
         internalBufferBuilder.end();
+        vertexPositions.flip();
     }
 
     public void clear() {
         internalBufferBuilder.clear();
+        vertexPositions.clear();
     }
 
     public BufferBuilder getInternalBufferBuilder() {
         return internalBufferBuilder;
     }
 
+    public FloatBuffer getVertexPositions() {
+        return vertexPositions;
+    }
 }

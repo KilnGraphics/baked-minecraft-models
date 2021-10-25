@@ -22,6 +22,7 @@ import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
 import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.system.MemoryUtil;
@@ -33,6 +34,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 @Mixin({AnimalModel.class,
         BookModel.class, // TODO OPT: inject into renderBook instead of render so it works on block models
@@ -60,7 +62,10 @@ public class ModelMixins implements VboBackedModel {
     private MatrixEntryList bmm$currentMatrices;
 
     @Unique
-    private int[] bmm$bakedIndices;
+    private ByteBuffer bmm$bakedIndexData;
+
+    @Unique
+    private VboBackedModel.BakedIndexMetadata bmm$bakedIndexMetadata;
 
     @Override
     @Unique
@@ -70,8 +75,14 @@ public class ModelMixins implements VboBackedModel {
 
     @Override
     @Unique
-    public int[] getBakedIndices() {
-        return bmm$bakedIndices;
+    public ByteBuffer getBakedIndexData() {
+        return bmm$bakedIndexData;
+    }
+
+    @Override
+    @Unique
+    public BakedIndexMetadata getBakedIndexMetadata() {
+        return bmm$bakedIndexMetadata;
     }
 
     @Override
@@ -143,7 +154,6 @@ public class ModelMixins implements VboBackedModel {
             bmm$bakedVertices = new VertexBuffer();
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
             GlobalModelUtils.bakingData.addCloseable(bmm$bakedVertices);
-            GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
 
             // If we're transparent then we need to grab the EBO contents
             // Yes, reading the data back from the GPU is a kinda horrible way of doing this, but none of the alternatives
@@ -154,20 +164,48 @@ public class ModelMixins implements VboBackedModel {
             ByteBuffer eboData = MemoryUtil.memAlloc(eboSize);
             getBakedVertices().bind();
             GL20.glGetBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, eboData);
+            eboData.limit(eboSize);
             VertexBuffer.unbind();
 
-            // Convert it to shorts
-            // It seems sufficently unlikely that anyeo
-            bmm$bakedIndices = new int[vba.getVertexCount()];
-            for (int i = 0; i < bmm$bakedIndices.length; i++) {
-                bmm$bakedIndices[i] = switch (vba.getVertexFormat()) {
-                    case BYTE -> (short) eboData.get();
-                    case SHORT -> eboData.getShort();
-                    case INT -> eboData.getInt();
-                };
+            // Note that this completely breaks triangle fans/strips/any other primitive type that depends on the
+            // adjacent primitives, but that'd be a bit ridiculous to implement.
+            int paddedIndicesLen = MathHelper.roundUpToMultiple(eboData.remaining(), 4);
+            int vecLen = 3 * 4;
+            int indexCount = vba.getVertexCount();
+            int vertPerPrim = 3; // Actually, quads are turned into triangles internally - was vba.getDrawMode().size;
+            int primitiveCount = indexCount / vertPerPrim;
+            FloatBuffer vertexPositions = GlobalModelUtils.VBO_BUFFER_BUILDER.getVertexPositions();
+            bmm$bakedIndexData = ByteBuffer.allocate(paddedIndicesLen + vecLen * primitiveCount);
+            bmm$bakedIndexMetadata = new BakedIndexMetadata(vba.getVertexFormat(), vba.getDrawMode(), indexCount, primitiveCount, paddedIndicesLen);
+            bmm$bakedIndexData.put(eboData);
+            bmm$bakedIndexData.position(paddedIndicesLen);
+            eboData.position(0); // Go back to the start after putting it into bakedIndexData
+            for (int primitiveIdx = 0; primitiveIdx < primitiveCount; primitiveIdx++) {
+                float x = 0, y = 0, z = 0;
+                // Add each of the referenced verts
+                for (int vertId = 0; vertId < vertPerPrim; vertId++) {
+                    int idx = switch (vba.getVertexFormat()) {
+                        case BYTE -> eboData.get();
+                        case SHORT -> eboData.getShort();
+                        case INT -> eboData.getInt();
+                    };
+                    vertexPositions.position(idx * 3); // 3=length of vec in floats (NOT bytes)
+                    x += vertexPositions.get();
+                    y += vertexPositions.get();
+                    z += vertexPositions.get();
+                }
+                bmm$bakedIndexData.putFloat(x / vertPerPrim);
+                bmm$bakedIndexData.putFloat(y / vertPerPrim);
+                bmm$bakedIndexData.putFloat(z / vertPerPrim);
             }
 
+            if (bmm$bakedIndexData.hasRemaining())
+                throw new IllegalStateException("Didn't fill up index data");
+
+            bmm$bakedIndexData.flip();
+
             MemoryUtil.memFree(eboData);
+            GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
         }
     }
 

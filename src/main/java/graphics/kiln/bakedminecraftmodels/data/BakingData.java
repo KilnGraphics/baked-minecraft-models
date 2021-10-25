@@ -15,20 +15,20 @@ import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
-import io.netty.util.internal.shaded.org.jctools.queues.ConcurrentCircularArrayQueue;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
-import java.io.IOException;
-import java.nio.IntBuffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.*;
-import java.util.concurrent.*;
 
 public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<BakingData.PerInstanceData>>>> {
 
@@ -96,22 +96,63 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         if (matrixEntryList == null) return;
         model.setMatrixEntryList(null);
         long futurePartIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
-        matrixEntryList.clear();
-        matrixEntryListPool.offerLast(matrixEntryList);
 
-        IntBuffer ebo;
+        // While we have the matrices around, do the transparency processing if required
+        ByteBuffer ebo;
+        VertexFormat.IntType eboType;
         if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
-            // TODO sort the verts by depth
-            ebo = IntBuffer.wrap(model.getBakedIndices());
+            // Sort the verts by depth
+            // TODO reduce allocations
+            // TODO profile and optimise all this
+            // TODO write directly to the SSBO here
+            VboBackedModel.BakedIndexMetadata meta = model.getBakedIndexMetadata();
+            ByteBuffer bakedIndexData = model.getBakedIndexData();
+            int[] primitiveIndexes = new int[meta.primitiveCount()];
+            float[] primitiveDistances = new float[meta.primitiveCount()];
+            int centrePosIdx = meta.positionsOffset();
+            for (int i = 0; i < primitiveIndexes.length; i++) {
+                primitiveIndexes[i] = i;
+
+                // Read out the vertex centre position
+                float x = bakedIndexData.getFloat(centrePosIdx);
+                centrePosIdx += 4;
+                float y = bakedIndexData.getFloat(centrePosIdx);
+                centrePosIdx += 4;
+                float z = bakedIndexData.getFloat(centrePosIdx);
+                centrePosIdx += 4;
+
+                // FIXME use the correct part matrix
+                Matrix4f modelView = baseMatrixEntry.getModel();
+                float deltaX = x - modelView.a03;
+                float deltaY = y - modelView.a03;
+                float deltaZ = z - modelView.a03;
+
+                float distSq = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+                primitiveDistances[i] = distSq;
+            }
+            IntArrays.mergeSort(primitiveIndexes, (a, b) -> (int) Math.signum(primitiveDistances[a] - primitiveDistances[b]));
+
+            ebo = ByteBuffer.allocate(meta.indexDataSize());
+            ebo.order(ByteOrder.nativeOrder());
+            eboType = meta.indexFormat();
+            int stride = meta.indexStride();
+            for (int i = 0; i < primitiveIndexes.length; i++) {
+                int pos = stride * primitiveIndexes[i];
+                ebo.put(i * stride, bakedIndexData, pos, stride);
+            }
         } else {
             ebo = null;
+            eboType = null;
         }
+
+        matrixEntryList.clear();
+        matrixEntryListPool.offerLast(matrixEntryList);
 
         // TODO: make this whole thing concurrent if it needs to be
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, ebo));
+                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, ebo, eboType));
     }
 
     private void addNewSplit() {
@@ -199,7 +240,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                                   int overlayY, int lightX, int lightY,
                                   // The EBO contents. Formatted as {a,b,c,float-as-int-distance-to-cam} tuples
                                   // TODO convert to a @param comment
-                                  IntBuffer eboData
+                                  ByteBuffer eboData, VertexFormat.IntType eboType
     ) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {

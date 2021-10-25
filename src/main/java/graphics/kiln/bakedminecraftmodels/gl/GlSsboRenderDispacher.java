@@ -27,7 +27,7 @@ import net.minecraft.client.util.Window;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
 
-import java.nio.IntBuffer;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -277,11 +277,17 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         MemoryUtil.memSet(ptr, 0, 500);
         for (int i = 0; i < instanceCount; i++) {
             BakingData.PerInstanceData instance = perModelData.getValue().get(i);
-            IntBuffer instanceEbo = instance.eboData();
+            ByteBuffer instanceEbo = instance.eboData();
+            instanceEbo.position(0);
 
             for (int j = 0; j < indexCount; j++) {
                 // Temporary hack for testing - TODO assert instanceEbo len == indexCount
-                int innerOffset = j >= instanceEbo.remaining() ? 0 : instanceEbo.get(j);
+                // TODO figure out format conversions properly
+                int innerOffset = switch (instance.eboType()) {
+                    case INT -> instanceEbo.getInt();
+                    case SHORT -> instanceEbo.getShort();
+                    case BYTE -> instanceEbo.get();
+                };
 
                 MemoryUtil.memPutInt(ptr + eboLen, innerOffset + indexCount * i);
                 eboLen += 4;
