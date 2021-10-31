@@ -38,7 +38,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final int BUFFER_SECTIONS = 3;
     public static final long PART_PBO_SIZE = 9175040L; // 8.75 MiB
     public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
-    public static final long TRANSPARENT_EBO_SIZE = 512 * 1024; // 512 KiB - TODO figure out what a reasonable value is
+    public static final long TRANSLUCENT_EBO_SIZE = 512 * 1024; // 512 KiB - TODO figure out what a reasonable value is
 
     public final SectionedPersistentBuffer partPersistentSsbo;
     public final SectionedPersistentBuffer modelPersistentSsbo;
@@ -48,19 +48,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public GlSsboRenderDispacher() {
         partPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, PART_PBO_SIZE);
         modelPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, MODEL_PBO_SIZE);
+        translucencyPersistentEbo = createPersistentBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, TRANSLUCENT_EBO_SIZE);
         syncObjects = new SectionedSyncObjects(BUFFER_SECTIONS);
-
-        // FIXME triple-buffer
-        int name = GlStateManager._glGenBuffers();
-        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, name);
-        long fullSize = TRANSPARENT_EBO_SIZE * BUFFER_SECTIONS;
-        ARBBufferStorage.nglBufferStorage(GL15.GL_ELEMENT_ARRAY_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
-        translucencyPersistentEbo = new SectionedPersistentBuffer(
-                GL30C.nglMapBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
-                name,
-                BUFFER_SECTIONS,
-                TRANSPARENT_EBO_SIZE
-        );
     }
 
     private static SectionedPersistentBuffer createPersistentBuffer(int bufferType, long ssboSize) {
