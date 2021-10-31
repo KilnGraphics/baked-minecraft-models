@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.data.BakingData;
+import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
@@ -28,7 +29,6 @@ import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Map;
 
 public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
@@ -110,9 +110,9 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             VertexBuffer currentVertexBuffer = null;
             BufferRenderer.unbindAll();
 
-            for (Map<RenderLayer, Map<VboBackedModel, List<BakingData.PerInstanceData>>> perOrderedSectionData : GlobalModelUtils.bakingData) {
+            for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : GlobalModelUtils.bakingData) {
 
-                for (Map.Entry<RenderLayer, Map<VboBackedModel, List<BakingData.PerInstanceData>>> perRenderLayerData : perOrderedSectionData.entrySet()) {
+                for (Map.Entry<RenderLayer, Map<VboBackedModel, InstanceBatch>> perRenderLayerData : perOrderedSectionData.entrySet()) {
                     RenderLayer nextRenderLayer = perRenderLayerData.getKey();
                     if (currentRenderLayer == null) {
                         currentRenderLayer = nextRenderLayer;
@@ -129,7 +129,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                     RenderPhase.Transparency transparency = ((MultiPhaseParametersAccessor) (Object)
                             (((MultiPhaseRenderPassAccessor) nextRenderLayer).getPhases())).getTransparency();
 
-                    for (Map.Entry<VboBackedModel, List<BakingData.PerInstanceData>> perModelData : perRenderLayerData.getValue().entrySet()) {
+                    for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.getValue().entrySet()) {
                         VertexBuffer nextVertexBuffer = perModelData.getKey().getBakedVertices();
                         VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
                         int vertexCount = vertexBufferAccessor.getVertexCount();
@@ -206,7 +206,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         }
 
                         if (isTransparencySorted(transparency)) {
-                            drawSortedFakeInstanced(nextRenderLayer, shader, vertexBufferAccessor, perModelData);
+                            drawSortedFakeInstanced(nextRenderLayer, perModelData.getKey(), perModelData.getValue(), shader, vertexBufferAccessor);
                         } else {
                             RenderSystem.setupShaderLights(shader);
                             shader.bind();
@@ -242,8 +242,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
      * thing here is that we have control of the draw order - we can sort the elements by depth
      * from the camera, and use this to batch the rendering of transparent objects.
      */
-    private void drawSortedFakeInstanced(RenderLayer renderLayer, Shader shader, VertexBufferAccessor vba,
-                                         Map.Entry<VboBackedModel, List<BakingData.PerInstanceData>> perModelData) {
+    private void drawSortedFakeInstanced(RenderLayer renderLayer, VboBackedModel model, InstanceBatch batch, Shader shader, VertexBufferAccessor vba) {
         int instanceCount = perModelData.getValue().size();
         int indexCount = vba.getVertexCount();
         VertexFormat.DrawMode drawMode = vba.getDrawMode();
@@ -270,8 +269,6 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             instanceEbo.position(0);
 
             for (int j = 0; j < indexCount; j++) {
-                // Temporary hack for testing - TODO assert instanceEbo len == indexCount
-                // TODO figure out format conversions properly
                 int innerOffset = switch (instance.eboType()) {
                     case INT -> instanceEbo.getInt();
                     case SHORT -> instanceEbo.getShort();
@@ -283,7 +280,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             }
         }
 
-        GlUniform countUniform = shader.getUniform("InstanceVertCount"); // TODO rename
+        GlUniform countUniform = shader.getUniform("InstanceVertCount");
         if (countUniform != null) {
             countUniform.set(indexCount);
         }

@@ -49,15 +49,13 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final Set<AutoCloseable> closeables;
     private final SectionedPersistentBuffer modelPersistentSsbo;
     private final SectionedPersistentBuffer partPersistentSsbo;
-    private final SectionedPersistentBuffer translucencyPersistentEbo;
     private final Deque<InstanceBatch> batchPool;
 
     private RenderPhase.Transparency previousTransparency;
 
-    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo, SectionedPersistentBuffer translucencyPersistentEbo) {
+    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo) {
         this.modelPersistentSsbo = modelPersistentSsbo;
         this.partPersistentSsbo = partPersistentSsbo;
-        this.translucencyPersistentEbo = translucencyPersistentEbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(64);
         closeables = new ObjectOpenHashSet<>();
@@ -131,19 +129,17 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 cameraPositions[arrayIdx + 2] = -(m.a02 * m.a03 + m.a12 * m.a13 + m.a22 * m.a23) * undoScaleZ * undoScaleZ;
             }
 
-            float[] vertexPositions = model.getVertexPositions();
+            float[] primitivePositions = model.getPrimitivePositions();
             int[] primitivePartIds = model.getPrimitivePartIds();
 
-            int vertsPerPrimitive = renderLayer.getDrawMode().vertexCount;
-            int totalPrimitives = vertexPositions.length / vertsPerPrimitive;
-            float[] primitiveSqDistances = new float[totalPrimitives];
-            int[] primitiveIndices = new int[totalPrimitives];
-            for (int i = 0; i < totalPrimitives; i++) {
+            float[] primitiveSqDistances = new float[primitivePositions.length];
+            int[] primitiveIndices = new int[primitivePositions.length];
+            for (int i = 0; i < primitivePositions.length; i++) {
                 primitiveIndices[i] = i;
             }
             int skippedPrimitives = 0;
 
-            for (int prim = 0; prim < totalPrimitives; prim++) {
+            for (int prim = 0; prim < primitivePositions.length; prim++) {
                 // skip if not written
                 int partId = primitivePartIds[prim];
                 if (!matrixEntryList.getElementWritten(partId)) {
@@ -151,10 +147,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                     skippedPrimitives++;
                 }
 
-                int arrayIdx = partId * 3;
-                float deltaX = x - cameraPositions[arrayIdx];
-                float deltaY = y - cameraPositions[arrayIdx + 1];
-                float deltaZ = z - cameraPositions[arrayIdx + 2];
+                int primPosIdx = prim * 3;
+                float x = primitivePositions[primPosIdx];
+                float y = primitivePositions[primPosIdx + 1];
+                float z = primitivePositions[primPosIdx + 2];
+
+                int camPosIdx = partId * 3;
+                float deltaX = x - cameraPositions[camPosIdx];
+                float deltaY = y - cameraPositions[camPosIdx + 1];
+                float deltaZ = z - cameraPositions[camPosIdx + 2];
                 primitiveSqDistances[prim] = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             }
 
@@ -206,7 +207,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
             for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
                 for (InstanceBatch instanceBatch : perRenderLayerData.values()) {
-                    if (!instanceBatch.isEmpty()) {
+                    if (instanceBatch.size() > 0) {
                         return false;
                     }
                 }

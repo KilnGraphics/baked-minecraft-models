@@ -75,7 +75,7 @@ public class ModelMixins implements VboBackedModel {
     private MatrixStack.Entry bmm$baseMatrix;
 
     @Unique
-    private VboBackedModel bmm$previousStoredModel;
+    private VboBackedModel bmm$previousStoredBatch; // TODO: is this necessary anymore? should this be handled differently with batches?
 
     @Unique
     protected boolean bmm$childBakeable() { // this will be overridden by the lowest in the hierarchy as long as it's not private

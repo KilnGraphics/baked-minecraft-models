@@ -7,6 +7,7 @@
 package graphics.kiln.bakedminecraftmodels.data;
 
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
+import net.minecraft.client.render.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,9 @@ public class InstanceBatch {
 
     private int[] primitiveIndices;
     private int skippedPrimitives;
+
+    private VertexFormat.IntType indexType;
+    private long indexOffset;
 
     public InstanceBatch(int initialSize) {
         this.instances = new ArrayList<>(initialSize);
@@ -50,13 +54,25 @@ public class InstanceBatch {
         instances.add(instanceData);
     }
 
-    public boolean isEmpty() {
-        return instances.isEmpty();
+    public int size() {
+        return instances.size();
     }
 
     public void setPrimitiveIndices(int[] primitiveIndices, int skippedPrimitives) {
         this.primitiveIndices = primitiveIndices;
         this.skippedPrimitives = skippedPrimitives;
+    }
+
+    public void writeIndicesToBuffer(SectionedPersistentBuffer buffer) {
+
+    }
+
+    public long getIndexOffset() {
+        return indexOffset;
+    }
+
+    public VertexFormat.IntType getIndexType() {
+        return indexType;
     }
 
 }
