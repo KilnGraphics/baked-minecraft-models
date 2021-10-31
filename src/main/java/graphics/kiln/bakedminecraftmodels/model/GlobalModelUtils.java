@@ -24,7 +24,7 @@ public class GlobalModelUtils {
     // FIXME: not thread safe, but making one per instance is slow
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
     public static final GlSsboRenderDispacher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispacher();
-    public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPersistentSsbo, INSTANCED_RENDER_DISPATCHER.partPersistentSsbo);
+    public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPersistentSsbo, INSTANCED_RENDER_DISPATCHER.partPersistentSsbo, INSTANCED_RENDER_DISPATCHER.translucencyPersistentEbo);
 
     public static VertexConsumer getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
         return consumer instanceof SpriteTexturedVertexConsumer ?

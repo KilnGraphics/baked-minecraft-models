@@ -18,8 +18,10 @@ public class DebugInfo {
     public static final DecimalFormat sizeFormatter = new DecimalFormat("0.00");
     public static final String PART_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispacher.PART_PBO_SIZE) + " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
     public static final String MODEL_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispacher.MODEL_PBO_SIZE) + " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
+    public static final String TRANSLUCENCY_EBO_SUFFIX = " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
     public static long currentPartBufferSize;
     public static long currentModelBufferSize;
+    public static long currentTranslucencyEboSize;
 
     public static String getSizeReadable(long bytes) {
         String suffix;

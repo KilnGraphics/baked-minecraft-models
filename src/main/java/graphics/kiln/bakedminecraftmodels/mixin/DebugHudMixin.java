@@ -26,6 +26,7 @@ public class DebugHudMixin {
         List<String> strings = cir.getReturnValue();
         strings.add("[Baked Models] Model Buffer: " + DebugInfo.getSizeReadable(DebugInfo.currentModelBufferSize) + DebugInfo.MODEL_BUFFER_SUFFIX);
         strings.add("[Baked Models] Part Buffer: " + DebugInfo.getSizeReadable(DebugInfo.currentPartBufferSize) + DebugInfo.PART_BUFFER_SUFFIX);
+        strings.add("[Baked Models] Translucent Index Buffer: " + DebugInfo.getSizeReadable(DebugInfo.currentTranslucencyEboSize) + DebugInfo.TRANSLUCENCY_EBO_SUFFIX);
 
         int totalInstances = 0;
         int totalSets = 0;
@@ -41,6 +42,7 @@ public class DebugHudMixin {
 
         DebugInfo.currentModelBufferSize = 0;
         DebugInfo.currentPartBufferSize = 0;
+        DebugInfo.currentTranslucencyEboSize = 0;
         DebugInfo.modelToDebugInfoMap.clear();
     }
 }

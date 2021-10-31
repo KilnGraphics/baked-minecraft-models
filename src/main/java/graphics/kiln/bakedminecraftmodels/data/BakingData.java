@@ -9,6 +9,7 @@ package graphics.kiln.bakedminecraftmodels.data;
 import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
+import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
@@ -20,6 +21,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix4f;
@@ -49,13 +51,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final Set<AutoCloseable> closeables;
     private final SectionedPersistentBuffer modelPersistentSsbo;
     private final SectionedPersistentBuffer partPersistentSsbo;
+    private final SectionedPersistentBuffer translucencyPersistentEbo;
     private final Deque<InstanceBatch> batchPool;
 
     private RenderPhase.Transparency previousTransparency;
 
-    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo) {
+    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo, SectionedPersistentBuffer translucencyPersistentEbo) {
         this.modelPersistentSsbo = modelPersistentSsbo;
         this.partPersistentSsbo = partPersistentSsbo;
+        this.translucencyPersistentEbo = translucencyPersistentEbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(64);
         closeables = new ObjectOpenHashSet<>();
@@ -70,7 +74,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
         Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
-        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor) (Object) (((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
+        MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) renderLayer).getPhases();
+        @SuppressWarnings("ConstantConditions")
+        RenderPhase.Transparency currentTransparency = multiPhaseParameters.getTransparency();
         if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
             renderSection = opaqueSection;
         } else {
@@ -79,9 +85,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             } else if (TRANSPARENCY_SLICING && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
                 String currentTransparencyName = currentTransparencyAccessor.getName();
                 String previousTransparencyName = previousTransparencyAccessor.getName();
-                // TODO comment
-                //noinspection StringEquality - The name strings are compile-time constants and will be interned
-                if (currentTransparencyName == previousTransparencyName) {
+                if (currentTransparencyName.equals(previousTransparencyName)) {
                     addNewSplit();
                 }
             }
@@ -97,7 +101,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         long partIndex = matrixEntryList.writeToBuffer(partPersistentSsbo, baseMatrixEntry);
 
         // While we have the matrices around, do the transparency processing if required
-        if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
+        if (GlSsboRenderDispacher.requiresIndexing(multiPhaseParameters)) {
             // Build the camera transforms from all the part transforms
             // This is how we quickly measure the depth of each primitive - find the
             // camera's position in model space, rather than applying the matrix multiply
@@ -164,7 +168,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             instanceBatch.setPrimitiveIndices(primitiveIndices, skippedPrimitives);
         }
 
-        // TODO: make this whole thing concurrent if it needs to be
+        // this will never be null, despite what intellij thinks
+        //noinspection ConstantConditions
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, unused -> Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY)))
@@ -177,8 +182,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
     private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> splitData) {
         for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : splitData.values()) {
-            for (InstanceBatch instanceBatch : perRenderLayerData.values()) {
+            for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.entrySet()) {
+                InstanceBatch instanceBatch = perModelData.getValue();
+                VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) perModelData.getKey().getBakedVertices();
+
                 instanceBatch.writeInstancesToBuffer(modelPersistentSsbo);
+
+                VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+                int indexCount = vertexBufferAccessor.getVertexCount();
+                instanceBatch.tryWriteIndicesToBuffer(drawMode, indexCount, translucencyPersistentEbo);
             }
         }
     }
@@ -203,6 +215,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         return opaqueSection.isEmpty() && orderedTransparencySections.isEmpty();
     }
 
+    @SuppressWarnings("unused")
     public boolean isEmptyDeep() {
         for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
             for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
