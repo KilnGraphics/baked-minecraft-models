@@ -262,17 +262,6 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         int eboLen = 0;
         int eboOffset = 0; // TODO triple-buffer
 
-        VertexBuffer vb = (VertexBuffer) vba;
-
-        int[] template = new int[]{
-                0,
-                1,
-                2,
-                2,
-                3,
-                0,
-        };
-
         long ptr = transparencyEbo.getSectionedPointer();
         MemoryUtil.memSet(ptr, 0, 500);
         for (int i = 0; i < instanceCount; i++) {

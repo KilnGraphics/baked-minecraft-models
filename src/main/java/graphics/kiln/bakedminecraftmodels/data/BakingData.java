@@ -22,7 +22,9 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix4f;
+import net.minecraft.util.math.Vec3f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
@@ -101,6 +103,37 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         ByteBuffer ebo;
         VertexFormat.IntType eboType;
         if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
+            // Build the camera transforms from all the part transforms
+            // This is how we quickly measure the depth of each primitive - find the
+            // camera's position in model space, rather than applying the matrix multiply
+            // to the primitive's position.
+            Vec3f[] cameraPositions = new Vec3f[matrixEntryList.getLargestPartId()];
+            for (int i = 0; i < cameraPositions.length; i++) {
+                Matrix4f m = matrixEntryList.getElementModelTransform(i);
+
+                // The translation of the inverse of a transform matrix is the negation of
+                // the transposed rotation times the transform of the original matrix.
+                //
+                // The above only works if there's no scaling though - to correct for that, we
+                // can find the length of each column is the scaling factor for x, y or z depending
+                // on the column number. We then divide each of the output components by the
+                // square of the scaling factor - since we're multiplying the scaling factor in a
+                // second time with the matrix multiply, we have to divide twice (same as divide by sq root)
+                // to get the actual inverse.
+
+                // Using fastInverseSqrt might be playing with fire here
+                float undoScaleX = 1 / MathHelper.sqrt(m.a00 * m.a00 + m.a10 * m.a10 + m.a20 * m.a20);
+                float undoScaleY = 1 / MathHelper.sqrt(m.a01 * m.a01 + m.a11 * m.a11 + m.a21 * m.a21);
+                float undoScaleZ = 1 / MathHelper.sqrt(m.a02 * m.a02 + m.a12 * m.a12 + m.a22 * m.a22);
+
+                // This doesn't account for scaling:
+                cameraPositions[i] = new Vec3f(
+                        -(m.a00 * m.a03 + m.a10 * m.a13 + m.a20 * m.a23) * undoScaleX * undoScaleX,
+                        -(m.a01 * m.a03 + m.a11 * m.a13 + m.a21 * m.a23) * undoScaleY * undoScaleY,
+                        -(m.a02 * m.a03 + m.a12 * m.a13 + m.a22 * m.a23) * undoScaleZ * undoScaleZ
+                );
+            }
+
             // Sort the verts by depth
             // TODO reduce allocations
             // TODO profile and optimise all this
@@ -122,10 +155,10 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 centrePosIdx += 4;
 
                 // FIXME use the correct part matrix
-                Matrix4f modelView = baseMatrixEntry.getModel();
-                float deltaX = x - modelView.a03;
-                float deltaY = y - modelView.a03;
-                float deltaZ = z - modelView.a03;
+                Vec3f cameraPos = cameraPositions[0];
+                float deltaX = x - cameraPos.getX();
+                float deltaY = y - cameraPos.getY();
+                float deltaZ = z - cameraPos.getZ();
 
                 float distSq = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
                 primitiveDistances[i] = distSq;

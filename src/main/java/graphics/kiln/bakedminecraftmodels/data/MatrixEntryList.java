@@ -27,7 +27,7 @@ public class MatrixEntryList {
         elementWrittenArray = new boolean[DEFAULT_SIZE];
     }
 
-    public MatrixEntryList(int initialPartId){
+    public MatrixEntryList(int initialPartId) {
         int size;
         if (initialPartId > DEFAULT_SIZE) {
             size = initialPartId;
@@ -75,6 +75,10 @@ public class MatrixEntryList {
 
     public int getLargestPartId() {
         return largestPartId;
+    }
+
+    public Matrix4f getElementModelTransform(int id) {
+        return elementArray[id].getModel();
     }
 
     /**
