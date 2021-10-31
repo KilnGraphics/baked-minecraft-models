@@ -23,13 +23,14 @@ import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix4f;
-import net.minecraft.util.math.Vec3f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
 import java.util.*;
 
 public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> {
+
+    private static final int INITIAL_BATCH_CAPACITY = 16;
 
     /**
      * Slice current instances on transparency where order is required.
@@ -63,7 +64,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         batchPool = new ArrayDeque<>(64);
     }
 
-    public void addInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
+    public void addInstance(VboBackedModel model, RenderLayer renderLayer, InstanceBatch instanceBatch, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
         int overlayX = overlay & 0xFFFF;
         int overlayY = overlay >> 16 & 0xFFFF;
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
@@ -91,11 +92,11 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
         previousTransparency = currentTransparency;
 
-        MatrixEntryList matrixEntryList = model.getCurrentMatrices();
+        MatrixEntryList matrixEntryList = instanceBatch.getMatrices();
         // this can happen if the model didn't render any modelparts,
         // in which case it makes sense to not try to render it anyway.
         if (matrixEntryList == null) return;
-        model.setMatrixEntryList(null);
+        long partIndex = matrixEntryList.writeToBuffer(partPersistentSsbo, baseMatrixEntry);
 
         // While we have the matrices around, do the transparency processing if required
         if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
@@ -103,9 +104,11 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             // This is how we quickly measure the depth of each primitive - find the
             // camera's position in model space, rather than applying the matrix multiply
             // to the primitive's position.
-            Vec3f[] cameraPositions = new Vec3f[matrixEntryList.getLargestPartId()];
-            for (int i = 0; i < cameraPositions.length; i++) {
-                Matrix4f m = matrixEntryList.getElementModelTransform(i);
+            float[] cameraPositions = new float[matrixEntryList.getLargestPartId() * 3];
+            for (int partId = 0; partId < cameraPositions.length; partId++) {
+                // skip empty part
+                if (!matrixEntryList.getElementWritten(partId)) continue;
+                Matrix4f m = matrixEntryList.get(partId).getModel();
 
                 // The translation of the inverse of a transform matrix is the negation of
                 // the transposed rotation times the transform of the original matrix.
@@ -122,11 +125,10 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 float undoScaleY = 1 / MathHelper.sqrt(m.a01 * m.a01 + m.a11 * m.a11 + m.a21 * m.a21);
                 float undoScaleZ = 1 / MathHelper.sqrt(m.a02 * m.a02 + m.a12 * m.a12 + m.a22 * m.a22);
 
-                cameraPositions[i] = new Vec3f(
-                        -(m.a00 * m.a03 + m.a10 * m.a13 + m.a20 * m.a23) * undoScaleX * undoScaleX,
-                        -(m.a01 * m.a03 + m.a11 * m.a13 + m.a21 * m.a23) * undoScaleY * undoScaleY,
-                        -(m.a02 * m.a03 + m.a12 * m.a13 + m.a22 * m.a23) * undoScaleZ * undoScaleZ
-                );
+                int arrayIdx = partId * 3;
+                cameraPositions[arrayIdx] = -(m.a00 * m.a03 + m.a10 * m.a13 + m.a20 * m.a23) * undoScaleX * undoScaleX;
+                cameraPositions[arrayIdx + 1] = -(m.a01 * m.a03 + m.a11 * m.a13 + m.a21 * m.a23) * undoScaleY * undoScaleY;
+                cameraPositions[arrayIdx + 2] = -(m.a02 * m.a03 + m.a12 * m.a13 + m.a22 * m.a23) * undoScaleZ * undoScaleZ;
             }
 
             float[] vertexPositions = model.getVertexPositions();
@@ -144,7 +146,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             for (int prim = 0; prim < totalPrimitives; prim++) {
                 // skip if not written
                 int partId = primitivePartIds[prim];
-                if (!matrices.getElementWritten(partId)) {
+                if (!matrixEntryList.getElementWritten(partId)) {
                     primitiveSqDistances[prim] = Float.MIN_VALUE;
                     skippedPrimitives++;
                 }
@@ -165,27 +167,23 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 float y = totalY / vertsPerPrimitive;
                 float z = totalZ / vertsPerPrimitive;
 
-                Matrix4f modelView = matrices.get(partId).getModel();
-                // subtract translation components of matrix to get delta
-                float deltaX = x - modelView.a00;
-                float deltaY = y - modelView.a01;
-                float deltaZ = z - modelView.a02;
+                int arrayIdx = partId * 3;
+                float deltaX = x - cameraPositions[arrayIdx];
+                float deltaY = y - cameraPositions[arrayIdx + 1];
+                float deltaZ = z - cameraPositions[arrayIdx + 2];
                 primitiveSqDistances[prim] = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             }
 
             IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
 
+            instanceBatch.setPrimitiveIndices(primitiveIndices, skippedPrimitives);
         }
-
-        long futurePartIndex = matrixEntryList.writeToBuffer(partPersistentSsbo, baseMatrixEntry);
-        matrixEntryList.clear();
-        matrixEntryListPool.offerLast(matrixEntryList);
 
         // TODO: make this whole thing concurrent if it needs to be
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
-                .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+                .computeIfAbsent(model, unused -> Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY)))
+                .addInstance(new BakingData.PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
     private void addNewSplit() {
@@ -194,27 +192,10 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
     private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> splitData) {
         for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : splitData.values()) {
-            for (InstanceBatch perModelData : perRenderLayerData.values()) {
-                for (PerInstanceData perInstanceData : perModelData) {
-                    perInstanceData.writeToBuffer(modelPersistentSsbo);
-                }
+            for (InstanceBatch instanceBatch : perRenderLayerData.values()) {
+                instanceBatch.writeInstancesToBuffer(modelPersistentSsbo);
             }
         }
-    }
-
-    public void addPartMatrix(InstanceBatch batch, int partId, MatrixStack.Entry matrixEntry) {
-        MatrixEntryList list = model.getCurrentMatrices();
-        if (list == null) {
-            MatrixEntryList recycledList = matrixEntryListPool.pollFirst();
-            if (recycledList != null) {
-                list = recycledList;
-            } else {
-                list = new MatrixEntryList(partId);
-            }
-            model.setMatrixEntryList(list);
-        }
-
-        list.set(partId, matrixEntry);
     }
 
     public void writeData() {
@@ -240,8 +221,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     public boolean isEmptyDeep() {
         for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
             for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
-                for (InstanceBatch perModelData : perRenderLayerData.values()) {
-                    if (perModelData.size() > 0) {
+                for (InstanceBatch instanceBatch : perRenderLayerData.values()) {
+                    if (!instanceBatch.isEmpty()) {
                         return false;
                     }
                 }

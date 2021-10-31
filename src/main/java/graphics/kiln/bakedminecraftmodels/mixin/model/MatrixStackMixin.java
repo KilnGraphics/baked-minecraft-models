@@ -7,22 +7,22 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.access.BatchContainer;
-import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
+import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 
 @Mixin(MatrixStack.class)
 public class MatrixStackMixin implements BatchContainer {
 
-    private VboBackedModel model;
+    private InstanceBatch batch;
 
     @Override
-    public VboBackedModel getModel() {
-        return model;
+    public InstanceBatch getBatch() {
+        return batch;
     }
 
     @Override
-    public void setModel(VboBackedModel model) {
-        this.model = model;
+    public void setBatch(InstanceBatch batch) {
+        this.batch = batch;
     }
 }

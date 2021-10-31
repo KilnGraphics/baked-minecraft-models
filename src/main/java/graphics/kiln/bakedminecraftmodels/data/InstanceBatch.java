@@ -1,15 +1,23 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 package graphics.kiln.bakedminecraftmodels.data;
+
+import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class InstanceBatch {
 
-    public final List<BakingData.PerInstanceData> instances;
-    public final MatrixEntryList matrices;
+    private final List<BakingData.PerInstanceData> instances;
+    private final MatrixEntryList matrices;
 
-    public int[] primitiveSqDistances;
-    public int skippedPrimitives;
+    private int[] primitiveIndices;
+    private int skippedPrimitives;
 
     public InstanceBatch(int initialSize) {
         this.instances = new ArrayList<>(initialSize);
@@ -20,11 +28,35 @@ public class InstanceBatch {
         instances.clear();
         matrices.clear();
 
-        primitiveSqDistances = null;
+        primitiveIndices = null;
         skippedPrimitives = 0;
     }
 
     public boolean isIndexed() {
-        return primitiveSqDistances != null;
+        return primitiveIndices != null;
     }
+
+    public MatrixEntryList getMatrices() {
+        return matrices;
+    }
+
+    public void writeInstancesToBuffer(SectionedPersistentBuffer buffer) {
+        for (BakingData.PerInstanceData perInstanceData : instances) {
+            perInstanceData.writeToBuffer(buffer);
+        }
+    }
+
+    public void addInstance(BakingData.PerInstanceData instanceData) {
+        instances.add(instanceData);
+    }
+
+    public boolean isEmpty() {
+        return instances.isEmpty();
+    }
+
+    public void setPrimitiveIndices(int[] primitiveIndices, int skippedPrimitives) {
+        this.primitiveIndices = primitiveIndices;
+        this.skippedPrimitives = skippedPrimitives;
+    }
+
 }

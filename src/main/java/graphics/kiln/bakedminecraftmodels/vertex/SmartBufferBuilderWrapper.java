@@ -6,19 +6,10 @@
 
 package graphics.kiln.bakedminecraftmodels.vertex;
 
-import com.google.common.collect.RangeMap;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
-import it.unimi.dsi.fastutil.floats.FloatArrayList;
-import it.unimi.dsi.fastutil.floats.FloatList;
-import it.unimi.dsi.fastutil.ints.Int2IntAVLTreeMap;
-import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
-
-import java.nio.FloatBuffer;
 
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
