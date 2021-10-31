@@ -20,17 +20,14 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.Closeable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.*;
 
-public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<BakingData.PerInstanceData>>>> {
+public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> {
 
     /**
      * Slice current instances on transparency where order is required.
@@ -38,24 +35,26 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
      */
     public static final boolean TRANSPARENCY_SLICING = true;
 
-    private final Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> opaqueSection;
+    private final Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> opaqueSection;
     /**
      * Each map in the deque represents a separate ordered section, which is required for transparency ordering.
      * For each model in the map, it has its own map where each RenderLayer has a list of instances. This is
      * because we can only batch instances with the same RenderLayer and model.
      */
-    private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> orderedTransparencySections;
+    private final Deque<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> orderedTransparencySections;
 
     private final Set<AutoCloseable> closeables;
-    private final SectionedPersistentBuffer modelPbo;
-    private final SectionedPersistentBuffer partPbo;
+    private final SectionedPersistentBuffer modelPersistentSsbo;
+    private final SectionedPersistentBuffer partPersistentSsbo;
+    private final SectionedPersistentBuffer translucencyPersistentEbo;
     private final Deque<MatrixEntryList> matrixEntryListPool;
 
     private RenderPhase.Transparency previousTransparency;
 
-    public BakingData(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        this.modelPbo = modelPbo;
-        this.partPbo = partPbo;
+    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo, SectionedPersistentBuffer translucencyPersistentEbo) {
+        this.modelPersistentSsbo = modelPersistentSsbo;
+        this.partPersistentSsbo = partPersistentSsbo;
+        this.translucencyPersistentEbo = translucencyPersistentEbo;
         opaqueSection = new LinkedHashMap<>();
         orderedTransparencySections = new ArrayDeque<>(256);
         closeables = new ObjectOpenHashSet<>();
@@ -90,61 +89,66 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
         previousTransparency = currentTransparency;
 
+        // While we have the matrices around, do the transparency processing if required
+        if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
+            // Sort the verts by depth
+            float[] vertexPositions = model.getVertexPositions();
+            int[] primitivePartIds = model.getPrimitivePartIds();
+            MatrixEntryList matrices = model.getCurrentMatrices();
+
+            int vertsPerPrimitive = renderLayer.getDrawMode().vertexCount;
+            int totalPrimitives = vertexPositions.length / vertsPerPrimitive;
+            float[] primitiveSqDistances = new float[totalPrimitives];
+            int[] primitiveIndices = new int[totalPrimitives];
+            for (int i = 0; i < totalPrimitives; i++) {
+                primitiveIndices[i] = i;
+            }
+            int skippedPrimitives = 0;
+
+            for (int prim = 0; prim < totalPrimitives; prim++) {
+                // skip if not written
+                int partId = primitivePartIds[prim];
+                if (!matrices.getElementWritten(partId)) {
+                    primitiveSqDistances[prim] = Float.MIN_VALUE;
+                    skippedPrimitives++;
+                }
+
+                // average vertex positions in primitive
+                float totalX = 0;
+                float totalY = 0;
+                float totalZ = 0;
+                for (int vert = 0; vert < vertsPerPrimitive; vert++) {
+                    // positions per previous primitives plus positions per previous points (vertices)
+                    // bars
+                    int startingPos = prim * vertsPerPrimitive * 3 + vert * 3;
+                    totalX += vertexPositions[startingPos + vert];
+                    totalY += vertexPositions[startingPos + vert + 1];
+                    totalZ += vertexPositions[startingPos + vert + 2];
+                }
+                float x = totalX / vertsPerPrimitive;
+                float y = totalY / vertsPerPrimitive;
+                float z = totalZ / vertsPerPrimitive;
+
+                Matrix4f modelView = matrices.get(partId).getModel();
+                // subtract translation components of matrix to get delta
+                float deltaX = x - modelView.a00;
+                float deltaY = y - modelView.a01;
+                float deltaZ = z - modelView.a02;
+                primitiveSqDistances[prim] = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+            }
+
+            IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
+
+
+
+        }
+
         MatrixEntryList matrixEntryList = model.getCurrentMatrices();
         // this can happen if the model didn't render any modelparts,
         // in which case it makes sense to not try to render it anyway.
         if (matrixEntryList == null) return;
         model.setMatrixEntryList(null);
-        long futurePartIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
-
-        // While we have the matrices around, do the transparency processing if required
-        ByteBuffer ebo;
-        VertexFormat.IntType eboType;
-        if (GlSsboRenderDispacher.isTransparencySorted(currentTransparency)) {
-            // Sort the verts by depth
-            // TODO reduce allocations
-            // TODO profile and optimise all this
-            // TODO write directly to the SSBO here
-            VboBackedModel.BakedIndexMetadata meta = model.getBakedIndexMetadata();
-            ByteBuffer bakedIndexData = model.getBakedIndexData();
-            int[] primitiveIndexes = new int[meta.primitiveCount()];
-            float[] primitiveDistances = new float[meta.primitiveCount()];
-            int centrePosIdx = meta.positionsOffset();
-            for (int i = 0; i < primitiveIndexes.length; i++) {
-                primitiveIndexes[i] = i;
-
-                // Read out the vertex centre position
-                float x = bakedIndexData.getFloat(centrePosIdx);
-                centrePosIdx += 4;
-                float y = bakedIndexData.getFloat(centrePosIdx);
-                centrePosIdx += 4;
-                float z = bakedIndexData.getFloat(centrePosIdx);
-                centrePosIdx += 4;
-
-                // FIXME use the correct part matrix
-                Matrix4f modelView = baseMatrixEntry.getModel();
-                float deltaX = x - modelView.a03;
-                float deltaY = y - modelView.a03;
-                float deltaZ = z - modelView.a03;
-
-                float distSq = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
-                primitiveDistances[i] = distSq;
-            }
-            IntArrays.mergeSort(primitiveIndexes, (a, b) -> (int) Math.signum(primitiveDistances[a] - primitiveDistances[b]));
-
-            ebo = ByteBuffer.allocate(meta.indexDataSize());
-            ebo.order(ByteOrder.nativeOrder());
-            eboType = meta.indexFormat();
-            int stride = meta.indexStride();
-            for (int i = 0; i < primitiveIndexes.length; i++) {
-                int pos = stride * primitiveIndexes[i];
-                ebo.put(i * stride, bakedIndexData, pos, stride);
-            }
-        } else {
-            ebo = null;
-            eboType = null;
-        }
-
+        long futurePartIndex = matrixEntryList.writeToBuffer(partPersistentSsbo, baseMatrixEntry);
         matrixEntryList.clear();
         matrixEntryListPool.offerLast(matrixEntryList);
 
@@ -152,7 +156,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, ebo, eboType));
+                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
     }
 
     private void addNewSplit() {
@@ -163,7 +167,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : splitData.values()) {
             for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
                 for (PerInstanceData perInstanceData : perModelData) {
-                    perInstanceData.writeToBuffer(modelPbo);
+                    perInstanceData.writeToBuffer(modelPersistentSsbo);
                 }
             }
         }
@@ -185,11 +189,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public void writeData() {
-        // TODO OPT: re-make this async by returning pointers to buffer sections and making things atomic
-
         writeSplitData(opaqueSection);
 
-        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> transparencySection : orderedTransparencySections) {
+        for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> transparencySection : orderedTransparencySections) {
             writeSplitData(transparencySection);
         }
     }
@@ -198,7 +200,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         closeables.add(closeable);
     }
 
-    public Iterator<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> iterator() {
+    public Iterator<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> iterator() {
         return Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
     }
 
@@ -207,9 +209,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public boolean isEmptyDeep() {
-        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> perOrderedSectionData : this) {
-            for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : perOrderedSectionData.values()) {
-                for (List<?> perModelData : perRenderLayerData.values()) {
+        for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
+            for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
+                for (List<InstanceBatch> perModelData : perRenderLayerData.values()) {
                     if (perModelData.size() > 0) {
                         return false;
                     }
@@ -237,11 +239,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
-                                  int overlayY, int lightX, int lightY,
-                                  // The EBO contents. Formatted as {a,b,c,float-as-int-distance-to-cam} tuples
-                                  // TODO convert to a @param comment
-                                  ByteBuffer eboData, VertexFormat.IntType eboType
-    ) {
+                                  int overlayY, int lightX, int lightY) {
 
         public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
             long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);

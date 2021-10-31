@@ -40,14 +40,14 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
     public static final long TRANSPARENT_EBO_SIZE = 512 * 1024; // 512 KiB - TODO figure out what a reasonable value is
 
-    public final SectionedPersistentBuffer partPbo;
-    public final SectionedPersistentBuffer modelPbo;
+    public final SectionedPersistentBuffer partPersistentSsbo;
+    public final SectionedPersistentBuffer modelPersistentSsbo;
+    public final SectionedPersistentBuffer translucencyPersistentEbo;
     public final SectionedSyncObjects syncObjects;
-    public final SectionedPersistentBuffer transparencyEbo; // FIXME not a PBO
 
     public GlSsboRenderDispacher() {
-        partPbo = createSsboPersistentBuffer(PART_PBO_SIZE);
-        modelPbo = createSsboPersistentBuffer(MODEL_PBO_SIZE);
+        partPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, PART_PBO_SIZE);
+        modelPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, MODEL_PBO_SIZE);
         syncObjects = new SectionedSyncObjects(BUFFER_SECTIONS);
 
         // FIXME triple-buffer
@@ -55,7 +55,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, name);
         long fullSize = TRANSPARENT_EBO_SIZE * BUFFER_SECTIONS;
         ARBBufferStorage.nglBufferStorage(GL15.GL_ELEMENT_ARRAY_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
-        transparencyEbo = new SectionedPersistentBuffer(
+        translucencyPersistentEbo = new SectionedPersistentBuffer(
                 GL30C.nglMapBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
                 name,
                 BUFFER_SECTIONS,
@@ -63,13 +63,13 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         );
     }
 
-    private static SectionedPersistentBuffer createSsboPersistentBuffer(long ssboSize) {
+    private static SectionedPersistentBuffer createPersistentBuffer(int bufferType, long ssboSize) {
         int name = GlStateManager._glGenBuffers();
-        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, name);
+        GlStateManager._glBindBuffer(bufferType, name);
         long fullSize = ssboSize * BUFFER_SECTIONS;
-        ARBBufferStorage.nglBufferStorage(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
+        ARBBufferStorage.nglBufferStorage(bufferType, fullSize, MemoryUtil.NULL, BUFFER_CREATION_FLAGS);
         return new SectionedPersistentBuffer(
-                GL30C.nglMapBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 0, fullSize, BUFFER_MAP_FLAGS),
+                GL30C.nglMapBufferRange(bufferType, 0, fullSize, BUFFER_MAP_FLAGS),
                 name,
                 BUFFER_SECTIONS,
                 ssboSize
@@ -90,15 +90,15 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
             GlobalModelUtils.bakingData.writeData();
 
-            long partSectionStartPos = partPbo.getCurrentSection() * partPbo.getSectionSize();
-            long modelSectionStartPos = modelPbo.getCurrentSection() * modelPbo.getSectionSize();
-            long partLength = partPbo.getPositionOffset().getAcquire();
-            long modelLength = modelPbo.getPositionOffset().getAcquire();
+            long partSectionStartPos = partPersistentSsbo.getCurrentSection() * partPersistentSsbo.getSectionSize();
+            long modelSectionStartPos = modelPersistentSsbo.getCurrentSection() * modelPersistentSsbo.getSectionSize();
+            long partLength = partPersistentSsbo.getPositionOffset().getAcquire();
+            long modelLength = modelPersistentSsbo.getPositionOffset().getAcquire();
 
-            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPbo.getName());
+            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPersistentSsbo.getName());
             GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partLength);
 
-            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPbo.getName());
+            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPersistentSsbo.getName());
             GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelLength);
 
             if (currentPartSyncObject != MemoryUtil.NULL) {
@@ -106,13 +106,13 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
             }
             syncObjects.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPbo.getName(), partSectionStartPos, partLength);
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPbo.getName(), modelSectionStartPos, modelLength);
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPersistentSsbo.getName(), partSectionStartPos, partLength);
+            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPersistentSsbo.getName(), modelSectionStartPos, modelLength);
 
             DebugInfo.currentPartBufferSize = partLength;
             DebugInfo.currentModelBufferSize = modelLength;
-            partPbo.nextSection();
-            modelPbo.nextSection();
+            partPersistentSsbo.nextSection();
+            modelPersistentSsbo.nextSection();
             syncObjects.nextSection();
 
             int instanceOffset = 0;
@@ -273,7 +273,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                 0,
         };
 
-        long ptr = transparencyEbo.getSectionedPointer();
+        long ptr = translucencyPersistentEbo.getSectionedPointer();
         MemoryUtil.memSet(ptr, 0, 500);
         for (int i = 0; i < instanceCount; i++) {
             BakingData.PerInstanceData instance = perModelData.getValue().get(i);
@@ -301,7 +301,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
         // FIXME triple-buffer the EBO
         // TODO move this to the top of renderQueue with the SSBOs
-        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, transparencyEbo.getName());
+        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, translucencyPersistentEbo.getName());
         GL30C.glFlushMappedBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, eboOffset, eboLen);
 
         // TODO do we need to disable the VAO here? It's not bound in the shader, can it still
@@ -317,6 +317,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     }
 
     public static boolean isTransparencySorted(RenderPhase.Transparency transparency) {
+        // TODO instanced: opaque and additive with depth write off, index buffer: everything else
         String name = transparency.toString();
         return !name.equals("no_transparency") && !name.equals("additive_transparency");
     }

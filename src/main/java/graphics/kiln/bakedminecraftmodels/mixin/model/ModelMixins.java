@@ -62,27 +62,12 @@ public class ModelMixins implements VboBackedModel {
     private MatrixEntryList bmm$currentMatrices;
 
     @Unique
-    private ByteBuffer bmm$bakedIndexData;
-
-    @Unique
-    private VboBackedModel.BakedIndexMetadata bmm$bakedIndexMetadata;
+    private float[] bmm$bakedIndexData;
 
     @Override
     @Unique
     public VertexBuffer getBakedVertices() {
         return bmm$bakedVertices;
-    }
-
-    @Override
-    @Unique
-    public ByteBuffer getBakedIndexData() {
-        return bmm$bakedIndexData;
-    }
-
-    @Override
-    @Unique
-    public BakedIndexMetadata getBakedIndexMetadata() {
-        return bmm$bakedIndexMetadata;
     }
 
     @Override
@@ -154,57 +139,6 @@ public class ModelMixins implements VboBackedModel {
             bmm$bakedVertices = new VertexBuffer();
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
             GlobalModelUtils.bakingData.addCloseable(bmm$bakedVertices);
-
-            // If we're transparent then we need to grab the EBO contents
-            // Yes, reading the data back from the GPU is a kinda horrible way of doing this, but none of the alternatives
-            // look particularly appealing either. Since we're only doing this once per at startup it should be fine.
-            // TODO only do this if we're actually transparent, otherwise it's a waste of memory
-            VertexBufferAccessor vba = (VertexBufferAccessor) getBakedVertices();
-            int eboSize = vba.getVertexFormat().size * vba.getVertexCount(); // Mappings are wrong, should be 'index' not 'vertex'
-            ByteBuffer eboData = MemoryUtil.memAlloc(eboSize);
-            getBakedVertices().bind();
-            GL20.glGetBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, eboData);
-            eboData.limit(eboSize);
-            VertexBuffer.unbind();
-
-            // Note that this completely breaks triangle fans/strips/any other primitive type that depends on the
-            // adjacent primitives, but that'd be a bit ridiculous to implement.
-            int paddedIndicesLen = MathHelper.roundUpToMultiple(eboData.remaining(), 4);
-            int vecLen = 3 * 4;
-            int indexCount = vba.getVertexCount();
-            int vertPerPrim = 3; // Actually, quads are turned into triangles internally - was vba.getDrawMode().size;
-            int primitiveCount = indexCount / vertPerPrim;
-            FloatBuffer vertexPositions = GlobalModelUtils.VBO_BUFFER_BUILDER.getVertexPositions();
-            bmm$bakedIndexData = ByteBuffer.allocate(paddedIndicesLen + vecLen * primitiveCount);
-            bmm$bakedIndexMetadata = new BakedIndexMetadata(vba.getVertexFormat(), vba.getDrawMode(), indexCount, primitiveCount, paddedIndicesLen);
-            bmm$bakedIndexData.put(eboData);
-            bmm$bakedIndexData.position(paddedIndicesLen);
-            eboData.position(0); // Go back to the start after putting it into bakedIndexData
-            for (int primitiveIdx = 0; primitiveIdx < primitiveCount; primitiveIdx++) {
-                float x = 0, y = 0, z = 0;
-                // Add each of the referenced verts
-                for (int vertId = 0; vertId < vertPerPrim; vertId++) {
-                    int idx = switch (vba.getVertexFormat()) {
-                        case BYTE -> eboData.get();
-                        case SHORT -> eboData.getShort();
-                        case INT -> eboData.getInt();
-                    };
-                    vertexPositions.position(idx * 3); // 3=length of vec in floats (NOT bytes)
-                    x += vertexPositions.get();
-                    y += vertexPositions.get();
-                    z += vertexPositions.get();
-                }
-                bmm$bakedIndexData.putFloat(x / vertPerPrim);
-                bmm$bakedIndexData.putFloat(y / vertPerPrim);
-                bmm$bakedIndexData.putFloat(z / vertPerPrim);
-            }
-
-            if (bmm$bakedIndexData.hasRemaining())
-                throw new IllegalStateException("Didn't fill up index data");
-
-            bmm$bakedIndexData.flip();
-
-            MemoryUtil.memFree(eboData);
             GlobalModelUtils.VBO_BUFFER_BUILDER.clear();
         }
     }

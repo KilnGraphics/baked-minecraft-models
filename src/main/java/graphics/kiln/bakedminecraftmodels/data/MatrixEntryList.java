@@ -66,6 +66,14 @@ public class MatrixEntryList {
         elementArray[partId] = element;
     }
 
+    public boolean getElementWritten(int partId) {
+        return elementWrittenArray[partId];
+    }
+
+    public MatrixStack.Entry get(int partId) {
+        return elementArray[partId];
+    }
+
     public void clear() {
         // only fill modified portions of arrays
         Arrays.fill(elementArray, 0, largestPartId, null);

@@ -30,7 +30,6 @@ public class SectionedPersistentBuffer {
         return pointer + sectionOffset;
     }
 
-
     public int getName() {
         return name;
     }

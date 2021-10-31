@@ -6,7 +6,14 @@
 
 package graphics.kiln.bakedminecraftmodels.vertex;
 
+import com.google.common.collect.RangeMap;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import it.unimi.dsi.fastutil.floats.FloatArrayList;
+import it.unimi.dsi.fastutil.floats.FloatList;
+import it.unimi.dsi.fastutil.ints.Int2IntAVLTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
@@ -16,9 +23,6 @@ import java.nio.FloatBuffer;
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
 
-    // Keep an on-CPU copy of the vertex data - this is used to prepare transparency sorting data
-    private FloatBuffer vertexPositions = FloatBuffer.allocate(64 * 3);
-
     public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
         this.internalBufferBuilder = internalBufferBuilder;
     }
@@ -27,13 +31,9 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
     public VertexConsumer vertex(double x, double y, double z) {
         // Keep track of the vertex positions with an on-CPU buffer
         // Only store them as single-precision floats, that's plenty for transparency sorting
-        if (!vertexPositions.hasRemaining()) {
-            FloatBuffer newFB = FloatBuffer.allocate(vertexPositions.capacity() + 128 * 3);
-            vertexPositions.flip();
-            newFB.put(vertexPositions);
-            vertexPositions = newFB;
-        }
-        vertexPositions.put((float) x).put((float) y).put((float) z);
+        vertexPositions.add((float) x);
+        vertexPositions.add((float) y);
+        vertexPositions.add((float) z);
 
         return internalBufferBuilder.vertex(x, y, z);
     }
@@ -84,6 +84,7 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
         vertex(x, y, z); // Make sure we call this, to record the verts for the transparency stuff
         internalBufferBuilder.texture(u, v).normal(normalX, normalY, normalZ);
+//        partIds.add(partId);
         originalAccessor.getBuffer().putInt(originalAccessor.getElementOffset(), partId);
         internalBufferBuilder.nextElement();
         internalBufferBuilder.next();
@@ -113,7 +114,4 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         return internalBufferBuilder;
     }
 
-    public FloatBuffer getVertexPositions() {
-        return vertexPositions;
-    }
 }
