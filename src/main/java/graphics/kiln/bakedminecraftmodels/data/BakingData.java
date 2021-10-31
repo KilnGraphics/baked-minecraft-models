@@ -49,7 +49,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     private final SectionedPersistentBuffer modelPersistentSsbo;
     private final SectionedPersistentBuffer partPersistentSsbo;
     private final SectionedPersistentBuffer translucencyPersistentEbo;
-    private final Deque<MatrixEntryList> matrixEntryListPool;
+    private final Deque<InstanceBatch> batchPool;
 
     private RenderPhase.Transparency previousTransparency;
 
@@ -58,9 +58,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         this.partPersistentSsbo = partPersistentSsbo;
         this.translucencyPersistentEbo = translucencyPersistentEbo;
         opaqueSection = new LinkedHashMap<>();
-        orderedTransparencySections = new ArrayDeque<>(256);
+        orderedTransparencySections = new ArrayDeque<>(64);
         closeables = new ObjectOpenHashSet<>();
-        matrixEntryListPool = new ArrayDeque<>();
+        batchPool = new ArrayDeque<>(64);
     }
 
     public void addInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
@@ -69,7 +69,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
         int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
 
-        Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> renderSection;
+        Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
         RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor) (Object) (((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
         if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
@@ -175,8 +175,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
             IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
 
-
-
         }
 
         long futurePartIndex = matrixEntryList.writeToBuffer(partPersistentSsbo, baseMatrixEntry);
@@ -194,9 +192,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         orderedTransparencySections.add(new LinkedHashMap<>());
     }
 
-    private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> splitData) {
-        for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : splitData.values()) {
-            for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
+    private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> splitData) {
+        for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : splitData.values()) {
+            for (InstanceBatch perModelData : perRenderLayerData.values()) {
                 for (PerInstanceData perInstanceData : perModelData) {
                     perInstanceData.writeToBuffer(modelPersistentSsbo);
                 }
@@ -204,7 +202,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
     }
 
-    public void addPartMatrix(VboBackedModel model, int partId, MatrixStack.Entry matrixEntry) {
+    public void addPartMatrix(InstanceBatch batch, int partId, MatrixStack.Entry matrixEntry) {
         MatrixEntryList list = model.getCurrentMatrices();
         if (list == null) {
             MatrixEntryList recycledList = matrixEntryListPool.pollFirst();
@@ -242,7 +240,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     public boolean isEmptyDeep() {
         for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
             for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
-                for (List<InstanceBatch> perModelData : perRenderLayerData.values()) {
+                for (InstanceBatch perModelData : perRenderLayerData.values()) {
                     if (perModelData.size() > 0) {
                         return false;
                     }

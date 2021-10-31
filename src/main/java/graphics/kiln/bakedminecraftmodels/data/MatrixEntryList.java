@@ -85,10 +85,6 @@ public class MatrixEntryList {
         return largestPartId;
     }
 
-    public Matrix4f getElementModelTransform(int id) {
-        return elementArray[id].getModel();
-    }
-
     /**
      * Writes the contents of this list to a buffer, with null entries represented
      * as a stream of 0s, and unwritten elements represented as the base entry.

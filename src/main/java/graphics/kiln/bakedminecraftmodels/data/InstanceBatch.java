@@ -1,19 +1,30 @@
-package graphics.kiln.bakedminecraftmodels.model;
+package graphics.kiln.bakedminecraftmodels.data;
 
-import graphics.kiln.bakedminecraftmodels.data.BakingData;
-import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
-
+import java.util.ArrayList;
 import java.util.List;
 
 public class InstanceBatch {
 
-    private final List<BakingData.PerInstanceData> instances;
-    private final MatrixEntryList matrices;
+    public final List<BakingData.PerInstanceData> instances;
+    public final MatrixEntryList matrices;
 
-    private int[] primitiveSqDistances;
-    private int skippedPrimitives;
+    public int[] primitiveSqDistances;
+    public int skippedPrimitives;
 
-    public InstanceBatch() {
+    public InstanceBatch(int initialSize) {
+        this.instances = new ArrayList<>(initialSize);
+        this.matrices = new MatrixEntryList(initialSize);
+    }
 
+    public void reset() {
+        instances.clear();
+        matrices.clear();
+
+        primitiveSqDistances = null;
+        skippedPrimitives = 0;
+    }
+
+    public boolean isIndexed() {
+        return primitiveSqDistances != null;
     }
 }

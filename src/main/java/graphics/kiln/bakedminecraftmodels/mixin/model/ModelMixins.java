@@ -7,10 +7,9 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
-import graphics.kiln.bakedminecraftmodels.access.ModelContainer;
+import graphics.kiln.bakedminecraftmodels.access.BatchContainer;
 import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
 import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
-import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import net.minecraft.client.MinecraftClient;
@@ -22,19 +21,13 @@ import net.minecraft.client.render.block.entity.SignBlockEntityRenderer;
 import net.minecraft.client.render.entity.EnderDragonEntityRenderer;
 import net.minecraft.client.render.entity.model.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.opengl.GL20;
-import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 
 @Mixin({AnimalModel.class,
         BookModel.class, // TODO OPT: inject into renderBook instead of render so it works on block models
@@ -113,9 +106,9 @@ public class ModelMixins implements VboBackedModel {
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
                 bmm$convertedRenderLayer = convertedRenderLayer;
                 bmm$baseMatrix = matrices.peek();
-                ModelContainer modelContainer = (ModelContainer) matrices;
-                bmm$previousStoredModel = modelContainer.getModel();
-                modelContainer.setModel(this);
+                BatchContainer batchContainer = (BatchContainer) matrices;
+                bmm$previousStoredModel = batchContainer.getModel();
+                batchContainer.setModel(this);
             }
         }
     }
@@ -153,7 +146,7 @@ public class ModelMixins implements VboBackedModel {
             bmm$vertexFormat = null;
             bmm$convertedRenderLayer = null;
             bmm$baseMatrix = null;
-            ((ModelContainer) matrices).setModel(bmm$previousStoredModel);
+            ((BatchContainer) matrices).setModel(bmm$previousStoredModel);
             bmm$previousStoredModel = null;
         }
     }

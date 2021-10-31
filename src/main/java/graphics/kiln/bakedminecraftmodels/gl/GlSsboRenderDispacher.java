@@ -305,6 +305,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         // TODO Unbind EBO?
     }
 
+    // TODO: move this somewhere else
     public static boolean isTransparencySorted(RenderPhase.Transparency transparency) {
         // TODO instanced: opaque and additive with depth write off, index buffer: everything else
         String name = transparency.toString();
