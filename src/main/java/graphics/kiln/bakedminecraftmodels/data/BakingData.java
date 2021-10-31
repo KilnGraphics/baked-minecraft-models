@@ -151,22 +151,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                     skippedPrimitives++;
                 }
 
-                // average vertex positions in primitive
-                float totalX = 0;
-                float totalY = 0;
-                float totalZ = 0;
-                for (int vert = 0; vert < vertsPerPrimitive; vert++) {
-                    // positions per previous primitives plus positions per previous points (vertices)
-                    // bars
-                    int startingPos = prim * vertsPerPrimitive * 3 + vert * 3;
-                    totalX += vertexPositions[startingPos + vert];
-                    totalY += vertexPositions[startingPos + vert + 1];
-                    totalZ += vertexPositions[startingPos + vert + 2];
-                }
-                float x = totalX / vertsPerPrimitive;
-                float y = totalY / vertsPerPrimitive;
-                float z = totalZ / vertsPerPrimitive;
-
                 int arrayIdx = partId * 3;
                 float deltaX = x - cameraPositions[arrayIdx];
                 float deltaY = y - cameraPositions[arrayIdx + 1];

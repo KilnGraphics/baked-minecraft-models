@@ -78,9 +78,10 @@ public class BakedMinecraftModelsRenderLayerManager {
                             @Override
                             public void draw(BufferBuilder buffer, int cameraX, int cameraY, int cameraZ) {
                                 if (buffer.isBuilding()) {
-                                    if (((RenderLayerAccessor) (Object) this).getTranslucent()) {
-                                        buffer.setCameraPosition((float)cameraX, (float)cameraY, (float)cameraZ);
-                                    }
+                                    // TODO: i think when we're doing index based batching we don't want to do this
+//                                    if (((RenderLayerAccessor) (Object) this).getTranslucent()) {
+//                                        buffer.setCameraPosition((float)cameraX, (float)cameraY, (float)cameraZ);
+//                                    }
 
                                     buffer.end();
                                 }

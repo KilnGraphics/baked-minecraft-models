@@ -51,27 +51,13 @@ public class ModelMixins implements VboBackedModel {
     @Nullable
     private VertexBuffer bmm$bakedVertices;
 
-    @Unique
-    private MatrixEntryList bmm$currentMatrices;
-
-    @Unique
-    private float[] bmm$bakedIndexData;
-
     @Override
     @Unique
     public VertexBuffer getBakedVertices() {
         return bmm$bakedVertices;
     }
 
-    @Override
-    public MatrixEntryList getCurrentMatrices() {
-        return bmm$currentMatrices;
-    }
 
-    @Override
-    public void setMatrixEntryList(MatrixEntryList matrixEntryList) {
-        bmm$currentMatrices = matrixEntryList;
-    }
 
     @Unique
     private boolean bmm$currentPassBakeable;

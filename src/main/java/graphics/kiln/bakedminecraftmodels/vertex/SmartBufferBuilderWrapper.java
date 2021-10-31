@@ -6,13 +6,22 @@
 
 package graphics.kiln.bakedminecraftmodels.vertex;
 
+import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import it.unimi.dsi.fastutil.floats.FloatList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
+
+    private VertexFormat.DrawMode drawMode;
+    private float[] primitiveVertexPositions; // vertex positions in the current primitive
+    private int currentPosIdx;
+    private int currentVert; // TODO: need better name for this
+    private boolean firstPrimFinished;
+    private FloatList primitivePositions;
 
     public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
         this.internalBufferBuilder = internalBufferBuilder;
@@ -22,9 +31,48 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
     public VertexConsumer vertex(double x, double y, double z) {
         // Keep track of the vertex positions with an on-CPU buffer
         // Only store them as single-precision floats, that's plenty for transparency sorting
-        vertexPositions.add((float) x);
-        vertexPositions.add((float) y);
-        vertexPositions.add((float) z);
+
+        primitiveVertexPositions[currentPosIdx++] = (float) x;
+        primitiveVertexPositions[currentPosIdx++] = (float) y;
+        primitiveVertexPositions[currentPosIdx++] = (float) z;
+
+        // for modes like triangle strip and line strip, the primitive ends after the vertex count
+        // fills, and from then it's every time the size fills. NOTE: this doesn't account for
+        // primitive restarts, but minecraft doesn't use them anyway.
+        boolean primFinished = false;
+        if (currentPosIdx >= primitiveVertexPositions.length) {
+            currentPosIdx = 0;
+            if (!firstPrimFinished) {
+                firstPrimFinished = true;
+                primFinished = true;
+            }
+        }
+
+        if (firstPrimFinished) {
+            currentVert++;
+            if (currentVert >= drawMode.size) {
+                currentVert = 0;
+                primFinished = true;
+            }
+        }
+
+        if (primFinished) {
+            // average vertex positions in primitive
+            float totalX = 0;
+            float totalY = 0;
+            float totalZ = 0;
+
+            for (int vert = 0; vert < drawMode.vertexCount; vert++) {
+                int startingPos = vert * 3;
+                totalX += primitiveVertexPositions[startingPos];
+                totalY += primitiveVertexPositions[startingPos + 1];
+                totalZ += primitiveVertexPositions[startingPos + 2];
+            }
+
+            primitivePositions.add(totalX / drawMode.vertexCount);
+            primitivePositions.add(totalY / drawMode.vertexCount);
+            primitivePositions.add(totalZ / drawMode.vertexCount);
+        }
 
         return internalBufferBuilder.vertex(x, y, z);
     }
@@ -89,16 +137,21 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
     public void begin(VertexFormat.DrawMode drawMode, VertexFormat vertexFormat) {
         internalBufferBuilder.begin(drawMode, vertexFormat);
+        this.drawMode = drawMode;
+        primitiveVertexPositions = new float[drawMode.vertexCount * 3];
     }
 
     public void end() {
         internalBufferBuilder.end();
-        vertexPositions.flip();
+        if (currentPosIdx != 0) {
+            BakedMinecraftModels.LOGGER.warn("Primitive not finished! Pos idx at: " + currentPosIdx);
+        }
+        primitiveVertexPositions = null;
+        currentPosIdx = 0;
     }
 
     public void clear() {
         internalBufferBuilder.clear();
-        vertexPositions.clear();
     }
 
     public BufferBuilder getInternalBufferBuilder() {
