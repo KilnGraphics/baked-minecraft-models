@@ -58,6 +58,14 @@ public class ModelMixins implements VboBackedModel {
     }
 
     @Unique
+    private int bmm$vertexCount;
+
+    @Override
+    public int getVertexCount() {
+        return bmm$vertexCount;
+    }
+
+    @Unique
     private float[] bmm$primitivePositions;
 
     @Override
@@ -129,6 +137,7 @@ public class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
+            bmm$vertexCount = GlobalModelUtils.VBO_BUFFER_BUILDER.getVertexCount();
             GlobalModelUtils.VBO_BUFFER_BUILDER.end();
             bmm$primitivePositions = GlobalModelUtils.VBO_BUFFER_BUILDER.getPrimitivePositions();
             bmm$primitivePartIds = GlobalModelUtils.VBO_BUFFER_BUILDER.getPrimitivePartIds();

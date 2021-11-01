@@ -22,4 +22,7 @@ public interface BufferBuilderAccessor {
 
     @Accessor
     int getElementOffset();
+
+    @Accessor
+    int getVertexCount();
 }

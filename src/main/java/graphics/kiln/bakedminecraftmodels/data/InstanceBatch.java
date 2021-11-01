@@ -279,6 +279,7 @@ public class InstanceBatch {
     // multiple must be a power of 2
     private static long alignPowerOf2(long numToRound, long multiple) {
         // TODO: make sure this always works
+        //noinspection UnnecessaryParentheses
         return (numToRound + multiple - 1) & -multiple;
     }
 

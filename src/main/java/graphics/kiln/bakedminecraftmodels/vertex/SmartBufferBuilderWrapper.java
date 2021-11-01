@@ -147,6 +147,10 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         primitiveVertexPositions = new float[drawMode.vertexCount * 3];
     }
 
+    public int getVertexCount() {
+        return ((BufferBuilderAccessor) internalBufferBuilder).getVertexCount();
+    }
+
     public void end() {
         internalBufferBuilder.end();
         if (currentPosIdx != 0) {

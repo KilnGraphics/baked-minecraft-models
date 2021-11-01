@@ -67,6 +67,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         );
     }
 
+    @SuppressWarnings("ConstantConditions")
     public void renderQueues() {
         if (!GlobalModelUtils.bakingData.isEmptyShallow()) {
 
@@ -134,11 +135,11 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
                     Shader shader = RenderSystem.getShader();
 
-                    //noinspection ConstantConditions
                     MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) nextRenderLayer).getPhases();
 
                     for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.getValue().entrySet()) {
-                        VertexBuffer nextVertexBuffer = perModelData.getKey().getBakedVertices();
+                        VboBackedModel model = perModelData.getKey();
+                        VertexBuffer nextVertexBuffer = model.getBakedVertices();
                         VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
                         int vertexCount = vertexBufferAccessor.getVertexCount();
                         if (vertexCount <= 0) continue;
@@ -213,7 +214,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         }
 
                         if (requiresIndexing) {
-                            drawSortedFakeInstanced(instanceBatch, shader, vertexBufferAccessor);
+                            drawSortedFakeInstanced(instanceBatch, shader, vertexBufferAccessor, model.getVertexCount());
                         } else {
                             RenderSystem.setupShaderLights(shader);
                             shader.bind();
@@ -223,7 +224,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
                         instanceOffset += instanceCount;
 
-                        DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(perModelData.getKey().getClass().getSimpleName(), (ignored) -> new DebugInfo.ModelDebugInfo());
+                        DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(model.getClass().getSimpleName(), ignored -> new DebugInfo.ModelDebugInfo());
                         currentDebugInfo.instances += instanceCount;
                         currentDebugInfo.sets++;
 
@@ -251,14 +252,14 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
      * thing here is that we have control of the draw order - we can sort the elements by depth
      * from the camera, and use this to batch the rendering of transparent objects.
      */
-    private void drawSortedFakeInstanced(InstanceBatch batch, Shader shader, VertexBufferAccessor vba) {
+    private void drawSortedFakeInstanced(InstanceBatch batch, Shader shader, VertexBufferAccessor vba, int vertexCount) {
         int instanceCount = batch.size();
         int indexCount = vba.getVertexCount();
         VertexFormat.DrawMode drawMode = vba.getDrawMode();
 
         GlUniform countUniform = shader.getUniform("InstanceVertCount");
         if (countUniform != null) {
-            countUniform.set(indexCount);
+            countUniform.set(vertexCount);
         }
 
         // this needs to be re-bound because normal instanced stuff will probably be rendered before this
@@ -278,11 +279,11 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     }
 
     // TODO: move this somewhere else
+    @SuppressWarnings("ConstantConditions")
     public static boolean requiresIndexing(MultiPhaseParametersAccessor multiPhaseParameters) {
         // instanced: opaque and additive with depth write off
         // index buffer: everything else
         String transparencyName = multiPhaseParameters.getTransparency().toString();
-        //noinspection ConstantConditions
         return !transparencyName.equals("no_transparency") && !(transparencyName.equals("additive_transparency") && multiPhaseParameters.getWriteMaskState().equals(RenderPhaseAccessor.getColorMask()));
     }
 }
