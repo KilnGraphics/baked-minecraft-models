@@ -23,7 +23,6 @@ public class InstanceBatch {
 
     private VertexFormat.IntType indexType;
     private long indexOffset;
-    private int indexCount;
 
     public InstanceBatch(int initialSize) {
         this.instances = new ArrayList<>(initialSize);
@@ -38,7 +37,6 @@ public class InstanceBatch {
         skippedPrimitives = 0;
         indexType = null;
         indexOffset = 0;
-        indexCount = 0;
     }
 
     public boolean isIndexed() {
@@ -181,10 +179,6 @@ public class InstanceBatch {
 
     public long getIndexOffset() {
         return indexOffset;
-    }
-
-    public long getIndexCount() {
-        return indexCount;
     }
 
     public VertexFormat.IntType getIndexType() {

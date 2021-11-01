@@ -168,12 +168,10 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             instanceBatch.setPrimitiveIndices(primitiveIndices, skippedPrimitives);
         }
 
+        instanceBatch.addInstance(new BakingData.PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
         // this will never be null, despite what intellij thinks
         //noinspection ConstantConditions
-        renderSection
-                .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
-                .computeIfAbsent(model, unused -> Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY)))
-                .addInstance(new BakingData.PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+        renderSection.computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>()).put(model, instanceBatch);
     }
 
     private void addNewSplit() {
@@ -201,6 +199,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> transparencySection : orderedTransparencySections) {
             writeSplitData(transparencySection);
         }
+    }
+
+    public InstanceBatch getOrCreateInstanceBatch() {
+        return Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY));
+    }
+
+    public void recycleInstanceBatch(InstanceBatch instanceBatch) {
+        instanceBatch.reset();
+        batchPool.add(instanceBatch);
     }
 
     public void addCloseable(AutoCloseable closeable) {

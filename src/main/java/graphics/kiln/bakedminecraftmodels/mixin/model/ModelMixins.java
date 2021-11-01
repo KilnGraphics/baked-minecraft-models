@@ -9,7 +9,7 @@ package graphics.kiln.bakedminecraftmodels.mixin.model;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModelsRenderLayerManager;
 import graphics.kiln.bakedminecraftmodels.access.BatchContainer;
 import graphics.kiln.bakedminecraftmodels.access.RenderLayerContainer;
-import graphics.kiln.bakedminecraftmodels.data.MatrixEntryList;
+import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import net.minecraft.client.MinecraftClient;
@@ -57,7 +57,21 @@ public class ModelMixins implements VboBackedModel {
         return bmm$bakedVertices;
     }
 
+    @Unique
+    private float[] bmm$primitivePositions;
 
+    @Override
+    public float[] getPrimitivePositions() {
+        return bmm$primitivePositions;
+    }
+
+    @Unique
+    private int[] bmm$primitivePartIds;
+
+    @Override
+    public int[] getPrimitivePartIds() {
+        return bmm$primitivePartIds;
+    }
 
     @Unique
     private boolean bmm$currentPassBakeable;
@@ -75,7 +89,7 @@ public class ModelMixins implements VboBackedModel {
     private MatrixStack.Entry bmm$baseMatrix;
 
     @Unique
-    private VboBackedModel bmm$previousStoredBatch; // TODO: is this necessary anymore? should this be handled differently with batches?
+    private InstanceBatch bmm$previousStoredBatch; // TODO: is this necessary anymore? should this be handled differently with batches?
 
     @Unique
     protected boolean bmm$childBakeable() { // this will be overridden by the lowest in the hierarchy as long as it's not private
@@ -92,9 +106,10 @@ public class ModelMixins implements VboBackedModel {
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
                 bmm$convertedRenderLayer = convertedRenderLayer;
                 bmm$baseMatrix = matrices.peek();
+
                 BatchContainer batchContainer = (BatchContainer) matrices;
-                bmm$previousStoredModel = batchContainer.getModel();
-                batchContainer.setModel(this);
+                bmm$previousStoredBatch = batchContainer.getBatch();
+                batchContainer.setBatch(GlobalModelUtils.bakingData.getOrCreateInstanceBatch());
             }
         }
     }
@@ -115,6 +130,8 @@ public class ModelMixins implements VboBackedModel {
     private void createVbo(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (getBakedVertices() == null && bmm$currentPassBakeable) {
             GlobalModelUtils.VBO_BUFFER_BUILDER.end();
+            bmm$primitivePositions = GlobalModelUtils.VBO_BUFFER_BUILDER.getPrimitivePositions();
+            bmm$primitivePartIds = GlobalModelUtils.VBO_BUFFER_BUILDER.getPrimitivePartIds();
             bmm$bakedVertices = new VertexBuffer();
             getBakedVertices().upload(GlobalModelUtils.VBO_BUFFER_BUILDER.getInternalBufferBuilder());
             GlobalModelUtils.bakingData.addCloseable(bmm$bakedVertices);
@@ -125,15 +142,16 @@ public class ModelMixins implements VboBackedModel {
     @Inject(method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;IIFFFF)V", at = @At("TAIL"))
     private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (bmm$currentPassBakeable) {
-            GlobalModelUtils.bakingData.addInstance(this, bmm$convertedRenderLayer, bmm$baseMatrix, red, green, blue, alpha, overlay, light);
+            BatchContainer batchContainer = (BatchContainer) matrices;
+            GlobalModelUtils.bakingData.addInstance(this, bmm$convertedRenderLayer, batchContainer.getBatch(), bmm$baseMatrix, red, green, blue, alpha, overlay, light);
             bmm$currentPassBakeable = false; // we want this to be false by default when we start at the top again
             // reset variables that we don't need until next run
             bmm$drawMode = null;
             bmm$vertexFormat = null;
             bmm$convertedRenderLayer = null;
             bmm$baseMatrix = null;
-            ((BatchContainer) matrices).setModel(bmm$previousStoredModel);
-            bmm$previousStoredModel = null;
+            batchContainer.setBatch(bmm$previousStoredBatch);
+            bmm$previousStoredBatch = null;
         }
     }
 

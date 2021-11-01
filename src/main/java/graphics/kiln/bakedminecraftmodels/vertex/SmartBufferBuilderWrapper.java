@@ -8,23 +8,29 @@ package graphics.kiln.bakedminecraftmodels.vertex;
 
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.BufferBuilderAccessor;
+import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import it.unimi.dsi.fastutil.floats.FloatList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
 public class SmartBufferBuilderWrapper implements VertexConsumer {
     private final BufferBuilder internalBufferBuilder;
+    private final FloatList primitivePositions;
+    private final IntList primitivePartIds;
 
     private VertexFormat.DrawMode drawMode;
     private float[] primitiveVertexPositions; // vertex positions in the current primitive
     private int currentPosIdx;
     private int currentVert; // TODO: need better name for this
     private boolean firstPrimFinished;
-    private FloatList primitivePositions;
 
-    public SmartBufferBuilderWrapper(BufferBuilder internalBufferBuilder) {
-        this.internalBufferBuilder = internalBufferBuilder;
+    public SmartBufferBuilderWrapper(int initialSize) {
+        this.internalBufferBuilder = new BufferBuilder(initialSize);
+        this.primitivePositions = new FloatArrayList(initialSize);
+        this.primitivePartIds = new IntArrayList(initialSize);
     }
 
     @Override
@@ -72,6 +78,7 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
             primitivePositions.add(totalX / drawMode.vertexCount);
             primitivePositions.add(totalY / drawMode.vertexCount);
             primitivePositions.add(totalZ / drawMode.vertexCount);
+            primitivePartIds.add(partId);
         }
 
         return internalBufferBuilder.vertex(x, y, z);
@@ -123,7 +130,6 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
         vertex(x, y, z); // Make sure we call this, to record the verts for the transparency stuff
         internalBufferBuilder.texture(u, v).normal(normalX, normalY, normalZ);
-//        partIds.add(partId);
         originalAccessor.getBuffer().putInt(originalAccessor.getElementOffset(), partId);
         internalBufferBuilder.nextElement();
         internalBufferBuilder.next();
@@ -150,8 +156,17 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         currentPosIdx = 0;
     }
 
+    public float[] getPrimitivePositions() {
+        return primitivePositions.toFloatArray();
+    }
+
+    public int[] getPrimitivePartIds() {
+        return primitivePartIds.toIntArray();
+    }
+
     public void clear() {
         internalBufferBuilder.clear();
+        primitivePositions.clear();
     }
 
     public BufferBuilder getInternalBufferBuilder() {
