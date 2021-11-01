@@ -253,10 +253,6 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
      * from the camera, and use this to batch the rendering of transparent objects.
      */
     private void drawSortedFakeInstanced(InstanceBatch batch, Shader shader, VertexBufferAccessor vba, int vertexCount) {
-        int instanceCount = batch.size();
-        int indexCount = vba.getVertexCount();
-        VertexFormat.DrawMode drawMode = vba.getDrawMode();
-
         GlUniform countUniform = shader.getUniform("InstanceVertCount");
         if (countUniform != null) {
             countUniform.set(vertexCount);
@@ -271,7 +267,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
         RenderSystem.setupShaderLights(shader);
         shader.bind();
-        GL31C.glDrawElements(drawMode.mode, indexCount * instanceCount, batch.getIndexType().count, batch.getIndexOffset());
+        int indexCount = vba.getVertexCount();
+        GL31C.glDrawElements(vba.getDrawMode().mode, indexCount * batch.size(), batch.getIndexType().count, batch.getIndexOffset());
         shader.unbind();
 
         // TODO Unbind EBO?
