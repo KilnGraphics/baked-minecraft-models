@@ -226,7 +226,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(perModelData.getKey().getClass().getSimpleName(), (ignored) -> new DebugInfo.ModelDebugInfo());
                         currentDebugInfo.instances += instanceCount;
                         currentDebugInfo.sets++;
-                        
+
                         GlobalModelUtils.bakingData.recycleInstanceBatch(instanceBatch);
                     }
                 }

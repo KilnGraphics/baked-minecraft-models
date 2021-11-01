@@ -78,11 +78,18 @@ public class MatrixEntryList {
         // only fill modified portions of arrays
         Arrays.fill(elementArray, 0, largestPartId, null);
         Arrays.fill(elementWrittenArray, 0, largestPartId, false);
-        largestPartId = 0;
+        largestPartId = -1;
     }
 
+    /**
+     * @return the largest part id added since the last clear, or -1 if nothing has been added
+     */
     public int getLargestPartId() {
         return largestPartId;
+    }
+
+    public boolean isEmpty() {
+        return largestPartId == -1;
     }
 
     /**
