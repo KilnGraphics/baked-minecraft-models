@@ -122,15 +122,16 @@ public class InstanceBatch {
 
             float[] primitivePositions = model.getPrimitivePositions();
             int[] primitivePartIds = model.getPrimitivePartIds();
+            int totalPrimitives = primitivePartIds.length;
 
-            float[] primitiveSqDistances = new float[primitivePositions.length];
-            int[] primitiveIndices = new int[primitivePositions.length];
-            for (int i = 0; i < primitivePositions.length; i++) {
+            float[] primitiveSqDistances = new float[totalPrimitives];
+            int[] primitiveIndices = new int[totalPrimitives];
+            for (int i = 0; i < totalPrimitives; i++) {
                 primitiveIndices[i] = i;
             }
             int skippedPrimitives = 0;
 
-            for (int prim = 0; prim < primitivePositions.length; prim++) {
+            for (int prim = 0; prim < totalPrimitives; prim++) {
                 // skip if written as null
                 int partId = primitivePartIds[prim];
                 if (matrices.getElementWritten(partId) && matrices.get(partId) == null) {
@@ -174,16 +175,17 @@ public class InstanceBatch {
         long sizeBytes = (long) indexCount * indexType.size;
         // add with alignment
         long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> alignPowerOf2(prev, indexType.size) + add);
+        long startingPosAligned = alignPowerOf2(startingPosUnaligned, indexType.size);
+        indexOffset = startingPosAligned / indexType.size;
         // TODO: is the sectioned pointer always aligned to what we want? does it need to be aligned?
-        long ptr = buffer.getSectionedPointer() + alignPowerOf2(startingPosUnaligned, indexType.size);
-        indexOffset = ptr / indexType.size;
+        long ptr = buffer.getSectionedPointer() + startingPosAligned;
 
         IndexWriter indexWriter = getIndexFunction(indexType, drawMode);
         for (int instance = 0; instance < size(); instance++) {
             for (int i = skippedPrimitives; i < primitiveIndices.length; i++) {
                 int indexStart = primitiveIndices[i] * drawMode.vertexCount;
                 indexWriter.writeIndices(ptr, indexStart, drawMode.vertexCount);
-                ptr += drawMode.vertexCount;
+                ptr += (long) drawMode.vertexCount * indexType.size;
             }
         }
     }
