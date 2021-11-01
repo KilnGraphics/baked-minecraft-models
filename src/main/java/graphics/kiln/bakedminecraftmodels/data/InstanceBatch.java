@@ -173,7 +173,7 @@ public class InstanceBatch {
     public void tryWriteIndicesToBuffer(VertexFormat.DrawMode drawMode, int indexCount, SectionedPersistentBuffer buffer) {
         if (!isIndexed()) return;
 
-        indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount);
+        indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount * instances.size());
         long sizeBytes = (long) indexCount * indexType.size;
         // add with alignment
         long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> alignPowerOf2(prev, indexType.size) + add);
@@ -183,7 +183,7 @@ public class InstanceBatch {
         long ptr = buffer.getSectionedPointer() + startingPosAligned;
 
         IndexWriter indexWriter = getIndexFunction(indexType, drawMode);
-        for (int instance = 0; instance < size(); instance++) {
+        for (int instance = 0; instance < instances.size(); instance++) {
             for (int i = skippedPrimitives; i < primitiveIndices.length; i++) {
                 int indexStart = (instance * (primitiveIndices.length - skippedPrimitives) + primitiveIndices[i]) * drawMode.vertexCount;
                 indexWriter.writeIndices(ptr, indexStart, drawMode.vertexCount);
