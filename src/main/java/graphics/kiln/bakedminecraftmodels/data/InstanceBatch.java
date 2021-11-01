@@ -78,6 +78,7 @@ public class InstanceBatch {
 
         // While we have the matrices around, do the transparency processing if required
         MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) renderLayer).getPhases();
+        //noinspection ConstantConditions
         if (GlSsboRenderDispacher.requiresIndexing(multiPhaseParameters)) {
             // Build the camera transforms from all the part transforms
             // This is how we quickly measure the depth of each primitive - find the
@@ -151,6 +152,7 @@ public class InstanceBatch {
                 primitiveSqDistances[prim] = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
             }
 
+            // sort distances closest to furthest for front to back order
             IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
 
             setPrimitiveIndices(primitiveIndices, skippedPrimitives);
@@ -183,9 +185,9 @@ public class InstanceBatch {
         IndexWriter indexWriter = getIndexFunction(indexType, drawMode);
         for (int instance = 0; instance < size(); instance++) {
             for (int i = skippedPrimitives; i < primitiveIndices.length; i++) {
-                int indexStart = primitiveIndices[i] * drawMode.vertexCount;
+                int indexStart = (instance * (primitiveIndices.length - skippedPrimitives) + primitiveIndices[i]) * drawMode.vertexCount;
                 indexWriter.writeIndices(ptr, indexStart, drawMode.vertexCount);
-                ptr += (long) drawMode.vertexCount * indexType.size;
+                ptr += (long) drawMode.getSize(drawMode.vertexCount) * indexType.size;
             }
         }
     }
@@ -198,23 +200,23 @@ public class InstanceBatch {
                 switch (drawMode) {
                     case LINES -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutByte(ptr, (byte) startIdx);
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 1));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 2));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 3));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 2));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 1));
+                        MemoryUtil.memPutByte(ptr + 1, (byte) (startIdx + 1));
+                        MemoryUtil.memPutByte(ptr + 2, (byte) (startIdx + 2));
+                        MemoryUtil.memPutByte(ptr + 3, (byte) (startIdx + 3));
+                        MemoryUtil.memPutByte(ptr + 4, (byte) (startIdx + 2));
+                        MemoryUtil.memPutByte(ptr + 5, (byte) (startIdx + 1));
                     };
                     case QUADS -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutByte(ptr, (byte) startIdx);
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 1));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 2));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 2));
-                        MemoryUtil.memPutByte(ptr, (byte) (startIdx + 3));
-                        MemoryUtil.memPutByte(ptr, (byte) startIdx);
+                        MemoryUtil.memPutByte(ptr + 1, (byte) (startIdx + 1));
+                        MemoryUtil.memPutByte(ptr + 2, (byte) (startIdx + 2));
+                        MemoryUtil.memPutByte(ptr + 3, (byte) (startIdx + 2));
+                        MemoryUtil.memPutByte(ptr + 4, (byte) (startIdx + 3));
+                        MemoryUtil.memPutByte(ptr + 5, (byte) startIdx);
                     };
                     default -> function = (ptr, startIdx, vertsPerPrim) -> {
                         for (int i = 0; i < drawMode.vertexCount; i++) {
-                            MemoryUtil.memPutByte(ptr, (byte) (startIdx + i));
+                            MemoryUtil.memPutByte(ptr + i, (byte) (startIdx + i));
                         }
                     };
                 }
@@ -223,23 +225,23 @@ public class InstanceBatch {
                 switch (drawMode) {
                     case LINES -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutShort(ptr, (short) startIdx);
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 1));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 2));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 3));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 2));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 1));
+                        MemoryUtil.memPutShort(ptr + 2, (short) (startIdx + 1));
+                        MemoryUtil.memPutShort(ptr + 4, (short) (startIdx + 2));
+                        MemoryUtil.memPutShort(ptr + 6, (short) (startIdx + 3));
+                        MemoryUtil.memPutShort(ptr + 8, (short) (startIdx + 2));
+                        MemoryUtil.memPutShort(ptr + 10, (short) (startIdx + 1));
                     };
                     case QUADS -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutShort(ptr, (short) startIdx);
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 1));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 2));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 2));
-                        MemoryUtil.memPutShort(ptr, (short) (startIdx + 3));
-                        MemoryUtil.memPutShort(ptr, (short) startIdx);
+                        MemoryUtil.memPutShort(ptr + 2, (short) (startIdx + 1));
+                        MemoryUtil.memPutShort(ptr + 4, (short) (startIdx + 2));
+                        MemoryUtil.memPutShort(ptr + 6, (short) (startIdx + 2));
+                        MemoryUtil.memPutShort(ptr + 8, (short) (startIdx + 3));
+                        MemoryUtil.memPutShort(ptr + 10, (short) startIdx);
                     };
                     default -> function = (ptr, startIdx, vertsPerPrim) -> {
                         for (int i = 0; i < drawMode.vertexCount; i++) {
-                            MemoryUtil.memPutShort(ptr, (short) (startIdx + i));
+                            MemoryUtil.memPutShort(ptr + i * 2L, (short) (startIdx + i));
                         }
                     };
                 }
@@ -248,23 +250,23 @@ public class InstanceBatch {
                 switch (drawMode) {
                     case LINES -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutInt(ptr, startIdx);
-                        MemoryUtil.memPutInt(ptr, startIdx + 1);
-                        MemoryUtil.memPutInt(ptr, startIdx + 2);
-                        MemoryUtil.memPutInt(ptr, startIdx + 3);
-                        MemoryUtil.memPutInt(ptr, startIdx + 2);
-                        MemoryUtil.memPutInt(ptr, startIdx + 1);
+                        MemoryUtil.memPutInt(ptr + 4, startIdx + 1);
+                        MemoryUtil.memPutInt(ptr + 8, startIdx + 2);
+                        MemoryUtil.memPutInt(ptr + 12, startIdx + 3);
+                        MemoryUtil.memPutInt(ptr + 16, startIdx + 2);
+                        MemoryUtil.memPutInt(ptr + 20, startIdx + 1);
                     };
                     case QUADS -> function = (ptr, startIdx, ignored) -> {
                         MemoryUtil.memPutInt(ptr, startIdx);
-                        MemoryUtil.memPutInt(ptr, startIdx + 1);
-                        MemoryUtil.memPutInt(ptr, startIdx + 2);
-                        MemoryUtil.memPutInt(ptr, startIdx + 2);
-                        MemoryUtil.memPutInt(ptr, startIdx + 3);
-                        MemoryUtil.memPutInt(ptr, startIdx);
+                        MemoryUtil.memPutInt(ptr + 4, startIdx + 1);
+                        MemoryUtil.memPutInt(ptr + 8, startIdx + 2);
+                        MemoryUtil.memPutInt(ptr + 12,startIdx + 2);
+                        MemoryUtil.memPutInt(ptr + 16,startIdx + 3);
+                        MemoryUtil.memPutInt(ptr + 20, startIdx);
                     };
                     default -> function = (ptr, startIdx, vertsPerPrim) -> {
                         for (int i = 0; i < drawMode.vertexCount; i++) {
-                            MemoryUtil.memPutInt(ptr, startIdx + i);
+                            MemoryUtil.memPutInt(ptr + i * 4L, startIdx + i);
                         }
                     };
                 }
