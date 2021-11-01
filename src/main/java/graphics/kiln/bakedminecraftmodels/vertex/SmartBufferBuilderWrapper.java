@@ -46,18 +46,18 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         // fills, and from then it's every time the size fills. NOTE: this doesn't account for
         // primitive restarts, but minecraft doesn't use them anyway.
         boolean primFinished = false;
-        if (currentPosIdx >= primitiveVertexPositions.length) {
-            currentPosIdx = 0;
-            if (!firstPrimFinished) {
-                firstPrimFinished = true;
-                primFinished = true;
-            }
-        }
-
         if (firstPrimFinished) {
             currentVert++;
             if (currentVert >= drawMode.size) {
                 currentVert = 0;
+                primFinished = true;
+            }
+        }
+
+        if (currentPosIdx >= primitiveVertexPositions.length) {
+            currentPosIdx = 0;
+            if (!firstPrimFinished) {
+                firstPrimFinished = true;
                 primFinished = true;
             }
         }
@@ -158,6 +158,8 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         }
         primitiveVertexPositions = null;
         currentPosIdx = 0;
+        currentVert = 0;
+        firstPrimFinished = false;
     }
 
     public float[] getPrimitivePositions() {

@@ -281,6 +281,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         // instanced: opaque and additive with depth write off
         // index buffer: everything else
         String transparencyName = multiPhaseParameters.getTransparency().toString();
-        return !transparencyName.equals("no_transparency") && !(transparencyName.equals("additive_transparency") && multiPhaseParameters.getWriteMaskState().equals(RenderPhaseAccessor.getColorMask()));
+        return !transparencyName.equals("no_transparency")
+                && !(transparencyName.equals("additive_transparency") && multiPhaseParameters.getWriteMaskState().equals(RenderPhaseAccessor.getColorMask()));
     }
 }

@@ -6,6 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.data;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
@@ -87,13 +88,13 @@ public class InstanceBatch {
             int partIds = matrices.getLargestPartId() + 1;
             float[] cameraPositions = new float[partIds * 3];
             for (int partId = 0; partId < partIds; partId++) {
-                Matrix4f m;
+                Matrix4f mv;
                 if (!matrices.getElementWritten(partId)) {
-                    m = baseMatrixEntry.getModel();
+                    mv = baseMatrixEntry.getModel();
                 } else {
                     MatrixStack.Entry entry = matrices.get(partId);
                     if (entry != null) {
-                        m = entry.getModel();
+                        mv = entry.getModel();
                     } else {
                         // skip empty part
                         continue;
@@ -111,14 +112,14 @@ public class InstanceBatch {
                 // to get the actual inverse.
 
                 // Using fastInverseSqrt might be playing with fire here
-                float undoScaleX = 1 / MathHelper.sqrt(m.a00 * m.a00 + m.a10 * m.a10 + m.a20 * m.a20);
-                float undoScaleY = 1 / MathHelper.sqrt(m.a01 * m.a01 + m.a11 * m.a11 + m.a21 * m.a21);
-                float undoScaleZ = 1 / MathHelper.sqrt(m.a02 * m.a02 + m.a12 * m.a12 + m.a22 * m.a22);
+                float undoScaleX = 1 / MathHelper.sqrt(mv.a00 * mv.a00 + mv.a10 * mv.a10 + mv.a20 * mv.a20);
+                float undoScaleY = 1 / MathHelper.sqrt(mv.a01 * mv.a01 + mv.a11 * mv.a11 + mv.a21 * mv.a21);
+                float undoScaleZ = 1 / MathHelper.sqrt(mv.a02 * mv.a02 + mv.a12 * mv.a12 + mv.a22 * mv.a22);
 
                 int arrayIdx = partId * 3;
-                cameraPositions[arrayIdx] = -(m.a00 * m.a03 + m.a10 * m.a13 + m.a20 * m.a23) * undoScaleX * undoScaleX;
-                cameraPositions[arrayIdx + 1] = -(m.a01 * m.a03 + m.a11 * m.a13 + m.a21 * m.a23) * undoScaleY * undoScaleY;
-                cameraPositions[arrayIdx + 2] = -(m.a02 * m.a03 + m.a12 * m.a13 + m.a22 * m.a23) * undoScaleZ * undoScaleZ;
+                cameraPositions[arrayIdx] = -(mv.a00 * mv.a03 + mv.a10 * mv.a13 + mv.a20 * mv.a23) * undoScaleX * undoScaleX;
+                cameraPositions[arrayIdx + 1] = -(mv.a01 * mv.a03 + mv.a11 * mv.a13 + mv.a21 * mv.a23) * undoScaleY * undoScaleY;
+                cameraPositions[arrayIdx + 2] = -(mv.a02 * mv.a03 + mv.a12 * mv.a13 + mv.a22 * mv.a23) * undoScaleZ * undoScaleZ;
             }
 
             float[] primitivePositions = model.getPrimitivePositions();
