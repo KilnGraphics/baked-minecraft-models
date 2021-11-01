@@ -6,9 +6,9 @@
 
 package graphics.kiln.bakedminecraftmodels.access;
 
-import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
+import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 
-public interface ModelContainer {
-    VboBackedModel getModel();
-    void setModel(VboBackedModel model);
+public interface BatchContainer {
+    InstanceBatch getBatch();
+    void setBatch(InstanceBatch batch);
 }

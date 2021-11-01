@@ -14,18 +14,17 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.SpriteTexturedVertexConsumer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Matrix4f;
 
 public class GlobalModelUtils {
 
-    public static final long MODEL_STRUCT_SIZE = (4 * Float.BYTES) + (2 * Integer.BYTES) + (2 * Integer.BYTES) + (3 * Float.BYTES) + Integer.BYTES;
-    public static final long PART_STRUCT_SIZE = (16 * Float.BYTES) + (12 * Float.BYTES);
+    public static final long MODEL_STRUCT_SIZE = 4 * Float.BYTES + 2 * Integer.BYTES + 2 * Integer.BYTES + 3 * Float.BYTES + Integer.BYTES;
+    public static final long PART_STRUCT_SIZE = 16 * Float.BYTES + 12 * Float.BYTES;
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
     // FIXME: not thread safe, but making one per instance is slow
-    public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768)); // just some random initial capacity lol
+    public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(32768); // just some random initial capacity lol
     public static final GlSsboRenderDispacher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispacher();
-    public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPbo, INSTANCED_RENDER_DISPATCHER.partPbo);
+    public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPersistentSsbo, INSTANCED_RENDER_DISPATCHER.partPersistentSsbo, INSTANCED_RENDER_DISPATCHER.translucencyPersistentEbo);
 
     public static VertexConsumer getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers
         return consumer instanceof SpriteTexturedVertexConsumer ?

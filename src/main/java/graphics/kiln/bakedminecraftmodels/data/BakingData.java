@@ -8,27 +8,23 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
+import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
-import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
-import io.netty.util.internal.shaded.org.jctools.queues.ConcurrentCircularArrayQueue;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.minecraft.client.gl.VertexBuffer;
-import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.util.math.MatrixStack;
-import org.lwjgl.system.MemoryUtil;
+import net.minecraft.client.render.VertexFormat;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
 
-public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, List<?>>>> {
+public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> {
+
+    private static final int INITIAL_BATCH_CAPACITY = 16;
 
     /**
      * Slice current instances on transparency where order is required.
@@ -36,39 +32,38 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
      */
     public static final boolean TRANSPARENCY_SLICING = true;
 
-    private final Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> opaqueSection;
+    private final Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> opaqueSection;
     /**
      * Each map in the deque represents a separate ordered section, which is required for transparency ordering.
      * For each model in the map, it has its own map where each RenderLayer has a list of instances. This is
      * because we can only batch instances with the same RenderLayer and model.
      */
-    private final Deque<Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>>> orderedTransparencySections;
+    private final Deque<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> orderedTransparencySections;
 
     private final Set<AutoCloseable> closeables;
-    private final SectionedPersistentBuffer modelPbo;
-    private final SectionedPersistentBuffer partPbo;
-    private final Deque<MatrixEntryList> matrixEntryListPool;
+    private final SectionedPersistentBuffer modelPersistentSsbo;
+    private final SectionedPersistentBuffer partPersistentSsbo;
+    private final SectionedPersistentBuffer translucencyPersistentEbo;
+    private final Deque<InstanceBatch> batchPool;
 
     private RenderPhase.Transparency previousTransparency;
 
-    public BakingData(SectionedPersistentBuffer modelPbo, SectionedPersistentBuffer partPbo) {
-        this.modelPbo = modelPbo;
-        this.partPbo = partPbo;
+    public BakingData(SectionedPersistentBuffer modelPersistentSsbo, SectionedPersistentBuffer partPersistentSsbo, SectionedPersistentBuffer translucencyPersistentEbo) {
+        this.modelPersistentSsbo = modelPersistentSsbo;
+        this.partPersistentSsbo = partPersistentSsbo;
+        this.translucencyPersistentEbo = translucencyPersistentEbo;
         opaqueSection = new LinkedHashMap<>();
-        orderedTransparencySections = new ArrayDeque<>(256);
+        orderedTransparencySections = new ArrayDeque<>(64);
         closeables = new ObjectOpenHashSet<>();
-        matrixEntryListPool = new ArrayDeque<>();
+        batchPool = new ArrayDeque<>(64);
     }
 
-    public void addInstance(VboBackedModel model, RenderLayer renderLayer, MatrixStack.Entry baseMatrixEntry, float red, float green, float blue, float alpha, int overlay, int light) {
-        int overlayX = overlay & 0xFFFF;
-        int overlayY = overlay >> 16 & 0xFFFF;
-        int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
-        int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
-
-        Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> renderSection;
+    @SuppressWarnings("ConstantConditions")
+    public InstanceBatch getOrCreateInstanceBatch(RenderLayer renderLayer, VboBackedModel model) {
+        Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> renderSection;
         // we still use linked maps in here to try to preserve patterns for things that rely on rendering in order not based on transparency.
-        RenderPhase.Transparency currentTransparency = ((MultiPhaseParametersAccessor)(Object)(((MultiPhaseRenderPassAccessor) renderLayer).getPhases())).getTransparency();
+        MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) renderLayer).getPhases();
+        RenderPhase.Transparency currentTransparency = multiPhaseParameters.getTransparency();
         if (!(currentTransparency instanceof RenderPhaseAccessor currentTransparencyAccessor) || currentTransparencyAccessor.getName().equals("no_transparency")) {
             renderSection = opaqueSection;
         } else {
@@ -77,8 +72,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             } else if (TRANSPARENCY_SLICING && previousTransparency instanceof RenderPhaseAccessor previousTransparencyAccessor) {
                 String currentTransparencyName = currentTransparencyAccessor.getName();
                 String previousTransparencyName = previousTransparencyAccessor.getName();
-                // additive can be unordered and still have the correct output
-                if (!(currentTransparencyName.equals("additive_transparency") && previousTransparencyName.equals("additive_transparency"))) {
+                if (currentTransparencyName.equals(previousTransparencyName)) {
                     addNewSplit();
                 }
             }
@@ -87,57 +81,39 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         }
         previousTransparency = currentTransparency;
 
-        MatrixEntryList matrixEntryList = model.getCurrentMatrices();
-        // this can happen if the model didn't render any modelparts,
-        // in which case it makes sense to not try to render it anyway.
-        if (matrixEntryList == null) return;
-        model.setMatrixEntryList(null);
-        long futurePartIndex = matrixEntryList.writeToBuffer(partPbo, baseMatrixEntry);
-        matrixEntryList.clear();
-        matrixEntryListPool.offerLast(matrixEntryList);
-
-        // TODO: make this whole thing concurrent if it needs to be
-        renderSection
+        return renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
-                .computeIfAbsent(model, unused -> new LinkedList<>()) // we use a LinkedList here because ArrayList takes a long time to grow
-                .add(new BakingData.PerInstanceData(futurePartIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY));
+                .computeIfAbsent(model, unused -> Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY, partPersistentSsbo)));
+    }
+
+    public void recycleInstanceBatch(InstanceBatch instanceBatch) {
+        instanceBatch.reset();
+        batchPool.add(instanceBatch);
     }
 
     private void addNewSplit() {
         orderedTransparencySections.add(new LinkedHashMap<>());
     }
 
-    private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> splitData) {
-        for (Map<VboBackedModel, List<PerInstanceData>> perRenderLayerData : splitData.values()) {
-            for (List<PerInstanceData> perModelData : perRenderLayerData.values()) {
-                for (PerInstanceData perInstanceData : perModelData) {
-                    perInstanceData.writeToBuffer(modelPbo);
-                }
+    private void writeSplitData(Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> splitData) {
+        for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : splitData.values()) {
+            for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.entrySet()) {
+                InstanceBatch instanceBatch = perModelData.getValue();
+                VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) perModelData.getKey().getBakedVertices();
+
+                instanceBatch.writeInstancesToBuffer(modelPersistentSsbo);
+
+                VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+                int indexCount = vertexBufferAccessor.getVertexCount();
+                instanceBatch.tryWriteIndicesToBuffer(drawMode, indexCount, translucencyPersistentEbo);
             }
         }
-    }
-
-    public void addPartMatrix(VboBackedModel model, int partId, MatrixStack.Entry matrixEntry) {
-        MatrixEntryList list = model.getCurrentMatrices();
-        if (list == null) {
-            MatrixEntryList recycledList = matrixEntryListPool.pollFirst();
-            if (recycledList != null) {
-                list = recycledList;
-            } else {
-                list = new MatrixEntryList(partId);
-            }
-            model.setMatrixEntryList(list);
-        }
-
-        list.set(partId, matrixEntry);
     }
 
     public void writeData() {
-        // TODO OPT: re-make this async by returning pointers to buffer sections and making things atomic
-
         writeSplitData(opaqueSection);
 
-        for (Map<RenderLayer, Map<VboBackedModel, List<PerInstanceData>>> transparencySection : orderedTransparencySections) {
+        for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> transparencySection : orderedTransparencySections) {
             writeSplitData(transparencySection);
         }
     }
@@ -146,19 +122,20 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
         closeables.add(closeable);
     }
 
-    public Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>> iterator() {
-        return (Iterator<Map<RenderLayer, Map<VboBackedModel, List<?>>>>) (Object) Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
+    public Iterator<Map<RenderLayer, Map<VboBackedModel, InstanceBatch>>> iterator() {
+        return Iterators.concat(Iterators.singletonIterator(opaqueSection), orderedTransparencySections.iterator());
     }
 
     public boolean isEmptyShallow() {
         return opaqueSection.isEmpty() && orderedTransparencySections.isEmpty();
     }
 
+    @SuppressWarnings("unused")
     public boolean isEmptyDeep() {
-        for (Map<RenderLayer, Map<VboBackedModel, List<?>>> perOrderedSectionData : this) {
-            for (Map<VboBackedModel, List<?>> perRenderLayerData : perOrderedSectionData.values()) {
-                for (List<?> perModelData : perRenderLayerData.values()) {
-                    if (perModelData.size() > 0) {
+        for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : this) {
+            for (Map<VboBackedModel, InstanceBatch> perRenderLayerData : perOrderedSectionData.values()) {
+                for (InstanceBatch instanceBatch : perRenderLayerData.values()) {
+                    if (instanceBatch.size() > 0) {
                         return false;
                     }
                 }
@@ -181,25 +158,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 BakedMinecraftModels.LOGGER.error("Error closing baking data closeables", e);
             }
         }
-    }
-
-    private record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX, int overlayY, int lightX, int lightY) {
-
-        public void writeToBuffer(SectionedPersistentBuffer modelPbo) {
-            long positionOffset = modelPbo.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
-            long pointer = modelPbo.getSectionedPointer() + positionOffset;
-            MemoryUtil.memPutFloat(pointer, red);
-            MemoryUtil.memPutFloat(pointer + 4, green);
-            MemoryUtil.memPutFloat(pointer + 8, blue);
-            MemoryUtil.memPutFloat(pointer + 12, alpha);
-            MemoryUtil.memPutInt(pointer + 16, overlayX);
-            MemoryUtil.memPutInt(pointer + 20, overlayY);
-            MemoryUtil.memPutInt(pointer + 24, lightX);
-            MemoryUtil.memPutInt(pointer + 28, lightY);
-            // if this overflows, we have to change it to an u64 in the shader. also, figure out how to actually calculate this as an uint.
-            MemoryUtil.memPutInt(pointer + 44, (int) partArrayIndex);
-        }
-
+        closeables.clear();
     }
 
 }

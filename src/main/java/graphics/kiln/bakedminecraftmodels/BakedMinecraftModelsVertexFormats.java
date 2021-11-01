@@ -16,6 +16,13 @@ public class BakedMinecraftModelsVertexFormats {
     public static final VertexFormat SMART_ENTITY_FORMAT = new VertexFormat(
             ImmutableMap.<String, VertexFormatElement>builder()
                     .put("Position", VertexFormats.POSITION_ELEMENT)
+                    // Four bytes of padding - this rounds out the vec3 to a vec4
+                    // This is required because the PullVert struct in the shader uses an alignment (std140) that
+                    // aligns vec2s to the 8-byte boundary, thus leaving a gap between the position and UV.
+                    // TODO is the performance gain here worth the memory tradeoff of changing the struct packing
+                    //  (whether directly or declaring a bunch of floats) and saving these four bytes per vert?
+                    .put("PosPad1", VertexFormats.PADDING_ELEMENT).put("PosPad2", VertexFormats.PADDING_ELEMENT)
+                    .put("PosPad3", VertexFormats.PADDING_ELEMENT).put("PosPad4", VertexFormats.PADDING_ELEMENT)
                     .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
                     .put("Normal", VertexFormats.NORMAL_ELEMENT)
                     .put("Padding", VertexFormats.PADDING_ELEMENT)

@@ -14,14 +14,24 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(VertexBuffer.class)
 public interface VertexBufferAccessor {
+    /**
+     * Get the index (NOT vertex) count. This is the number of items in the EBO, not the number
+     * of primitives.
+     */
     @Accessor
     int getVertexCount();
 
     @Accessor
     VertexFormat.DrawMode getDrawMode();
 
+    /**
+     * Get the type of integer used to store the index data (NOT vertex data).
+     */
     @Accessor
     VertexFormat.IntType getVertexFormat();
+
+    @Accessor
+    int getVertexBufferId();
 
     @Invoker
     void invokeBindVertexArray();

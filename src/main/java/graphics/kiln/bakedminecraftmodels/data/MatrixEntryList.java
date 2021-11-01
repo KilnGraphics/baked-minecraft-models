@@ -20,14 +20,14 @@ public class MatrixEntryList {
 
     private MatrixStack.Entry[] elementArray;
     private boolean[] elementWrittenArray; // needed to track of null entries
-    private int largestPartId; // needed to write correct amount to buffer
+    private int largestPartId = -1; // needed to write correct amount to buffer
 
     public MatrixEntryList() {
         elementArray = new MatrixStack.Entry[DEFAULT_SIZE];
         elementWrittenArray = new boolean[DEFAULT_SIZE];
     }
 
-    public MatrixEntryList(int initialPartId){
+    public MatrixEntryList(int initialPartId) {
         int size;
         if (initialPartId > DEFAULT_SIZE) {
             size = initialPartId;
@@ -66,15 +66,30 @@ public class MatrixEntryList {
         elementArray[partId] = element;
     }
 
+    public boolean getElementWritten(int partId) {
+        return elementWrittenArray[partId];
+    }
+
+    public MatrixStack.Entry get(int partId) {
+        return elementArray[partId];
+    }
+
     public void clear() {
         // only fill modified portions of arrays
         Arrays.fill(elementArray, 0, largestPartId, null);
         Arrays.fill(elementWrittenArray, 0, largestPartId, false);
-        largestPartId = 0;
+        largestPartId = -1;
     }
 
+    /**
+     * @return the largest part id added since the last clear, or -1 if nothing has been added
+     */
     public int getLargestPartId() {
         return largestPartId;
+    }
+
+    public boolean isEmpty() {
+        return largestPartId == -1;
     }
 
     /**

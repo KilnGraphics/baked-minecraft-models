@@ -15,4 +15,9 @@ import net.minecraft.client.render.RenderPhase;
 public interface RenderPhaseAccessor {
     @Accessor
     String getName();
+
+    @Accessor("COLOR_MASK")
+    static RenderPhase.WriteMaskState getColorMask() {
+        throw new RuntimeException("how");
+    }
 }

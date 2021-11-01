@@ -7,9 +7,9 @@
 package graphics.kiln.bakedminecraftmodels.mixin.model;
 
 import graphics.kiln.bakedminecraftmodels.access.BakeablePart;
-import graphics.kiln.bakedminecraftmodels.access.ModelContainer;
+import graphics.kiln.bakedminecraftmodels.access.BatchContainer;
+import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
-import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -152,10 +152,10 @@ public abstract class ModelPartMixin implements BakeablePart {
             modelMat.a31 = newModel31;
             modelMat.a32 = newModel32;
 
-            VboBackedModel model = ((ModelContainer) matrices).getModel();
+            InstanceBatch batch = ((BatchContainer) matrices).getBatch();
             // FIXME: is this always ok to do? think this is bad with skeleton holding bows
-            if (model != null) {
-                GlobalModelUtils.bakingData.addPartMatrix(model, bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
+            if (batch != null) {
+                batch.getMatrices().set(bmm$id, this.visible ? currentStackEntry : null); // TODO: does this method ever get called when the part is not visible?
             }
             ci.cancel();
         }
@@ -184,6 +184,8 @@ public abstract class ModelPartMixin implements BakeablePart {
 
                 if (bmm$usingSmartRenderer) {
                     if (!rotateOnly) {
+                        // this will never be null because the check for smart render only passes if this isn't null
+                        //noinspection ConstantConditions
                         smartBufferBuilderWrapper.setId(this.getId());
                         this.renderCuboids(GlobalModelUtils.IDENTITY_STACK_ENTRY, vertexConsumer, light, overlay, red, green, blue, alpha);
                     }
@@ -197,16 +199,16 @@ public abstract class ModelPartMixin implements BakeablePart {
 
                 matrices.pop();
             } else if (bmm$usingSmartRenderer) {
-                recurseSetNullMatrix(((ModelContainer) matrices).getModel(), (ModelPart) (Object) this);
+                recurseSetNullMatrix(((BatchContainer) matrices).getBatch(), (ModelPart) (Object) this);
             }
         }
     }
 
-    private void recurseSetNullMatrix(VboBackedModel model, ModelPart modelPart) {
+    private void recurseSetNullMatrix(InstanceBatch batch, ModelPart modelPart) {
         if ((Object) modelPart instanceof ModelPartMixin modelPartMixin) {
-            GlobalModelUtils.bakingData.addPartMatrix(model, modelPartMixin.getId(), null);
+            batch.getMatrices().set(modelPartMixin.getId(), null);
             for (ModelPart child : modelPartMixin.children.values()) {
-                recurseSetNullMatrix(model, child);
+                recurseSetNullMatrix(batch, child);
             }
         }
     }
