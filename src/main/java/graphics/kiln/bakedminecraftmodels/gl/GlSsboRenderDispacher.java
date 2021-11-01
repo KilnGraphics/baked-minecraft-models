@@ -160,8 +160,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         }
 
                         VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-
-                        int instanceCount = perModelData.getValue().size();
+                        InstanceBatch instanceBatch = perModelData.getValue();
+                        int instanceCount = instanceBatch.size();
                         if (instanceCount <= 0) continue;
 
                         for (int i = 0; i < 12; ++i) {
@@ -213,7 +213,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         }
 
                         if (requiresIndexing) {
-                            drawSortedFakeInstanced(perModelData.getValue(), shader, vertexBufferAccessor);
+                            drawSortedFakeInstanced(instanceBatch, shader, vertexBufferAccessor);
                         } else {
                             RenderSystem.setupShaderLights(shader);
                             shader.bind();
@@ -226,6 +226,8 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(perModelData.getKey().getClass().getSimpleName(), (ignored) -> new DebugInfo.ModelDebugInfo());
                         currentDebugInfo.instances += instanceCount;
                         currentDebugInfo.sets++;
+                        
+                        GlobalModelUtils.bakingData.recycleInstanceBatch(instanceBatch);
                     }
                 }
             }

@@ -108,9 +108,18 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             // to the primitive's position.
             float[] cameraPositions = new float[matrixEntryList.getLargestPartId() * 3];
             for (int partId = 0; partId < cameraPositions.length; partId++) {
-                // skip empty part
-                if (!matrixEntryList.getElementWritten(partId)) continue;
-                Matrix4f m = matrixEntryList.get(partId).getModel();
+                Matrix4f m;
+                if (!matrixEntryList.getElementWritten(partId)) {
+                    m = baseMatrixEntry.getModel();
+                } else {
+                    MatrixStack.Entry entry = matrixEntryList.get(partId);
+                    if (entry != null) {
+                        m = entry.getModel();
+                    } else {
+                        // skip empty part
+                        continue;
+                    }
+                }
 
                 // The translation of the inverse of a transform matrix is the negation of
                 // the transposed rotation times the transform of the original matrix.
@@ -144,9 +153,9 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             int skippedPrimitives = 0;
 
             for (int prim = 0; prim < primitivePositions.length; prim++) {
-                // skip if not written
+                // skip if written as null
                 int partId = primitivePartIds[prim];
-                if (!matrixEntryList.getElementWritten(partId)) {
+                if (matrixEntryList.getElementWritten(partId) && matrixEntryList.get(partId) == null) {
                     primitiveSqDistances[prim] = Float.MIN_VALUE;
                     skippedPrimitives++;
                 }
