@@ -173,8 +173,9 @@ public class InstanceBatch {
     public void tryWriteIndicesToBuffer(VertexFormat.DrawMode drawMode, int indexCount, SectionedPersistentBuffer buffer) {
         if (!isIndexed()) return;
 
-        indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount * instances.size());
-        long sizeBytes = (long) indexCount * indexType.size;
+        int totalIndices = indexCount * instances.size();
+        indexType = VertexFormat.IntType.getSmallestTypeFor(totalIndices);
+        long sizeBytes = (long) totalIndices * indexType.size;
         // add with alignment
         long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> alignPowerOf2(prev, indexType.size) + add);
         long startingPosAligned = alignPowerOf2(startingPosUnaligned, indexType.size);
