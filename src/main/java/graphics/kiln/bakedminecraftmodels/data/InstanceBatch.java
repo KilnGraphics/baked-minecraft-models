@@ -85,7 +85,7 @@ public class InstanceBatch {
             // camera's position in model space, rather than applying the matrix multiply
             // to the primitive's position.
             float[] cameraPositions = new float[matrices.getLargestPartId() * 3];
-            for (int partId = 0; partId < cameraPositions.length; partId++) {
+            for (int partId = 0; partId < matrices.getLargestPartId(); partId++) {
                 Matrix4f m;
                 if (!matrices.getElementWritten(partId)) {
                     m = baseMatrixEntry.getModel();

@@ -20,7 +20,7 @@ public class MatrixEntryList {
 
     private MatrixStack.Entry[] elementArray;
     private boolean[] elementWrittenArray; // needed to track of null entries
-    private int largestPartId; // needed to write correct amount to buffer
+    private int largestPartId = -1; // needed to write correct amount to buffer
 
     public MatrixEntryList() {
         elementArray = new MatrixStack.Entry[DEFAULT_SIZE];

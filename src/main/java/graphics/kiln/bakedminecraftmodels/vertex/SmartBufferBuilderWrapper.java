@@ -167,6 +167,7 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
     public void clear() {
         internalBufferBuilder.clear();
         primitivePositions.clear();
+        primitivePartIds.clear();
     }
 
     public BufferBuilder getInternalBufferBuilder() {
