@@ -71,21 +71,21 @@ public class InstanceBatch {
         int lightX = light & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
         int lightY = light >> 16 & (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE | 0xFF0F);
 
-        MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) renderLayer).getPhases();
-
         // this can happen if the model didn't render any modelparts,
         // in which case it makes sense to not try to render it anyway.
         if (matrices.isEmpty()) return;
         long partIndex = matrices.writeToBuffer(partBuffer, baseMatrixEntry);
 
         // While we have the matrices around, do the transparency processing if required
+        MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) renderLayer).getPhases();
         if (GlSsboRenderDispacher.requiresIndexing(multiPhaseParameters)) {
             // Build the camera transforms from all the part transforms
             // This is how we quickly measure the depth of each primitive - find the
             // camera's position in model space, rather than applying the matrix multiply
             // to the primitive's position.
-            float[] cameraPositions = new float[matrices.getLargestPartId() * 3];
-            for (int partId = 0; partId < matrices.getLargestPartId(); partId++) {
+            int partIds = matrices.getLargestPartId() + 1;
+            float[] cameraPositions = new float[partIds * 3];
+            for (int partId = 0; partId < partIds; partId++) {
                 Matrix4f m;
                 if (!matrices.getElementWritten(partId)) {
                     m = baseMatrixEntry.getModel();
