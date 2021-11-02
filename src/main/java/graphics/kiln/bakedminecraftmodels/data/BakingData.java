@@ -8,6 +8,7 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
+import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
@@ -83,7 +84,16 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
         return renderSection
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
-                .computeIfAbsent(model, unused -> Objects.requireNonNullElseGet(batchPool.pollFirst(), () -> new InstanceBatch(INITIAL_BATCH_CAPACITY, partPersistentSsbo)));
+                .computeIfAbsent(model, model1 -> {
+                    InstanceBatch recycledBatch = batchPool.pollFirst();
+                    // we want to keep the lambda in this format, so we create only one instead of two
+                    //noinspection ReplaceNullCheck
+                    if (recycledBatch != null) {
+                        return recycledBatch;
+                    } else {
+                        return new InstanceBatch(model1, GlSsboRenderDispacher.requiresIndexing(multiPhaseParameters), INITIAL_BATCH_CAPACITY, partPersistentSsbo);
+                    }
+                });
     }
 
     public void recycleInstanceBatch(InstanceBatch instanceBatch) {
@@ -105,7 +115,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
 
                 VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
                 int indexCount = vertexBufferAccessor.getVertexCount();
-                instanceBatch.tryWriteIndicesToBuffer(drawMode, indexCount, translucencyPersistentEbo);
+                instanceBatch.writeIndicesToBuffer(drawMode, indexCount, translucencyPersistentEbo);
             }
         }
     }

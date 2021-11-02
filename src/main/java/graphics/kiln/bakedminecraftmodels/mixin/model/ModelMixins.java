@@ -91,9 +91,6 @@ public class ModelMixins implements VboBackedModel {
     private VertexFormat bmm$vertexFormat;
 
     @Unique
-    private RenderLayer bmm$convertedRenderLayer;
-
-    @Unique
     private MatrixStack.Entry bmm$baseMatrix;
 
     @Unique
@@ -112,7 +109,6 @@ public class ModelMixins implements VboBackedModel {
             if (bmm$currentPassBakeable) {
                 bmm$drawMode = convertedRenderLayer.getDrawMode();
                 bmm$vertexFormat = convertedRenderLayer.getVertexFormat();
-                bmm$convertedRenderLayer = convertedRenderLayer;
                 bmm$baseMatrix = matrices.peek();
 
                 BatchContainer batchContainer = (BatchContainer) matrices;
@@ -152,13 +148,12 @@ public class ModelMixins implements VboBackedModel {
     private void setModelInstanceData(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha, CallbackInfo ci) {
         if (bmm$currentPassBakeable) {
             BatchContainer batchContainer = (BatchContainer) matrices;
-            batchContainer.getBatch().addInstance(this, bmm$convertedRenderLayer, bmm$baseMatrix, red, green, blue, alpha, overlay, light);
+            batchContainer.getBatch().addInstance(bmm$baseMatrix, red, green, blue, alpha, overlay, light);
 
             bmm$currentPassBakeable = false; // we want this to be false by default when we start at the top again
             // reset variables that we don't need until next run
             bmm$drawMode = null;
             bmm$vertexFormat = null;
-            bmm$convertedRenderLayer = null;
             bmm$baseMatrix = null;
             batchContainer.setBatch(bmm$previousStoredBatch);
             bmm$previousStoredBatch = null;

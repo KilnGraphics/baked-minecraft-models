@@ -64,9 +64,9 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
 
         if (primFinished) {
             // average vertex positions in primitive
-            float totalX = 0;
-            float totalY = 0;
-            float totalZ = 0;
+            float totalX = 0.0f;
+            float totalY = 0.0f;
+            float totalZ = 0.0f;
 
             for (int vert = 0; vert < drawMode.vertexCount; vert++) {
                 int startingPos = vert * 3;
@@ -155,9 +155,9 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         internalBufferBuilder.end();
         if (currentPosIdx != 0) {
             BakedMinecraftModels.LOGGER.warn("Primitive not finished! Pos idx at: " + currentPosIdx);
+            currentPosIdx = 0;
         }
         primitiveVertexPositions = null;
-        currentPosIdx = 0;
         currentVert = 0;
         firstPrimFinished = false;
     }

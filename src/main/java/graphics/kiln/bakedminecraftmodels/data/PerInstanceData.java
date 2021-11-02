@@ -11,7 +11,7 @@ import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import org.lwjgl.system.MemoryUtil;
 
 public record PerInstanceData(long partArrayIndex, float red, float green, float blue, float alpha, int overlayX,
-                              int overlayY, int lightX, int lightY) {
+                              int overlayY, int lightX, int lightY, int[] primitiveIndices, int skippedPrimitives) {
 
     public void writeToBuffer(SectionedPersistentBuffer buffer) {
         long positionOffset = buffer.getPositionOffset().getAndAdd(GlobalModelUtils.MODEL_STRUCT_SIZE);
