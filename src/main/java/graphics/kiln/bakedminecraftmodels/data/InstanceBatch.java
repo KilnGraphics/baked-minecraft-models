@@ -105,14 +105,14 @@ public class InstanceBatch {
                 // to get the actual inverse.
 
                 // Using fastInverseSqrt might be playing with fire here
-                float undoScaleX = 1 / MathHelper.sqrt(mv.a00 * mv.a00 + mv.a10 * mv.a10 + mv.a20 * mv.a20);
-                float undoScaleY = 1 / MathHelper.sqrt(mv.a01 * mv.a01 + mv.a11 * mv.a11 + mv.a21 * mv.a21);
-                float undoScaleZ = 1 / MathHelper.sqrt(mv.a02 * mv.a02 + mv.a12 * mv.a12 + mv.a22 * mv.a22);
+                double undoScaleX = 1.0 / Math.sqrt(mv.a00 * mv.a00 + mv.a10 * mv.a10 + mv.a20 * mv.a20);
+                double undoScaleY = 1.0 / Math.sqrt(mv.a01 * mv.a01 + mv.a11 * mv.a11 + mv.a21 * mv.a21);
+                double undoScaleZ = 1.0 / Math.sqrt(mv.a02 * mv.a02 + mv.a12 * mv.a12 + mv.a22 * mv.a22);
 
                 int arrayIdx = partId * 3;
-                cameraPositions[arrayIdx] = -(mv.a00 * mv.a03 + mv.a10 * mv.a13 + mv.a20 * mv.a23) * undoScaleX * undoScaleX;
-                cameraPositions[arrayIdx + 1] = -(mv.a01 * mv.a03 + mv.a11 * mv.a13 + mv.a21 * mv.a23) * undoScaleY * undoScaleY;
-                cameraPositions[arrayIdx + 2] = -(mv.a02 * mv.a03 + mv.a12 * mv.a13 + mv.a22 * mv.a23) * undoScaleZ * undoScaleZ;
+                cameraPositions[arrayIdx] = (float) (-(mv.a00 * mv.a03 + mv.a10 * mv.a13 + mv.a20 * mv.a23) * undoScaleX * undoScaleX);
+                cameraPositions[arrayIdx + 1] = (float) (-(mv.a01 * mv.a03 + mv.a11 * mv.a13 + mv.a21 * mv.a23) * undoScaleY * undoScaleY);
+                cameraPositions[arrayIdx + 2] = (float) (-(mv.a02 * mv.a03 + mv.a12 * mv.a13 + mv.a22 * mv.a23) * undoScaleZ * undoScaleZ);
             }
 
             float[] primitivePositions = model.getPrimitivePositions();
