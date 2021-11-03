@@ -149,7 +149,8 @@ public class InstanceBatch {
             IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
         }
 
-        int skippedPrimitivesEnd = primitiveIndices == null ? 0 : (primitiveIndices.length - skippedPrimitivesStart) / 2;
+//        int skippedPrimitivesEnd = primitiveIndices == null ? 0 : (primitiveIndices.length - skippedPrimitivesStart) / 2;
+        int skippedPrimitivesEnd = 0;
         instances.add(new PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, primitiveIndices, skippedPrimitivesStart, skippedPrimitivesEnd));
     }
 
