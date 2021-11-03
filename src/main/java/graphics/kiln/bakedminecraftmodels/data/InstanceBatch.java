@@ -12,7 +12,6 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
@@ -29,6 +28,7 @@ public class InstanceBatch {
 
     private VertexFormat.IntType indexType;
     private long indexOffset;
+    private int indexCount;
 
     public InstanceBatch(VboBackedModel model, boolean indexed, int initialSize, SectionedPersistentBuffer partBuffer) {
         this.instances = new ArrayList<>(initialSize);
@@ -72,7 +72,7 @@ public class InstanceBatch {
         long partIndex = matrices.writeToBuffer(partBuffer, baseMatrixEntry);
 
         int[] primitiveIndices = null;
-        int skippedPrimitives = 0;
+        int skippedPrimitivesStart = 0;
         if (indexed) {
             // Build the camera transforms from all the part transforms
             // This is how we quickly measure the depth of each primitive - find the
@@ -130,7 +130,7 @@ public class InstanceBatch {
                 int partId = primitivePartIds[prim];
                 if (matrices.getElementWritten(partId) && matrices.get(partId) == null) {
                     primitiveSqDistances[prim] = Float.MIN_VALUE;
-                    skippedPrimitives++;
+                    skippedPrimitivesStart++;
                 }
 
                 int primPosIdx = prim * 3;
@@ -149,19 +149,20 @@ public class InstanceBatch {
             IntArrays.quickSort(primitiveIndices, (i1, i2) -> Float.compare(primitiveSqDistances[i1], primitiveSqDistances[i2]));
         }
 
-        instances.add(new PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, primitiveIndices, skippedPrimitives));
+        int skippedPrimitivesEnd = primitiveIndices == null ? 0 : (primitiveIndices.length - skippedPrimitivesStart) / 2;
+        instances.add(new PerInstanceData(partIndex, red, green, blue, alpha, overlayX, overlayY, lightX, lightY, primitiveIndices, skippedPrimitivesStart, skippedPrimitivesEnd));
     }
 
     public int size() {
         return instances.size();
     }
 
-    public void writeIndicesToBuffer(VertexFormat.DrawMode drawMode, int indexCount, SectionedPersistentBuffer buffer) {
+    public void writeIndicesToBuffer(VertexFormat.DrawMode drawMode, SectionedPersistentBuffer buffer) {
         if (!isIndexed()) return;
 
-        int totalIndices = indexCount * instances.size();
-        indexType = VertexFormat.IntType.getSmallestTypeFor(totalIndices);
-        long sizeBytes = (long) totalIndices * indexType.size;
+        indexCount = drawMode.getSize(drawMode.vertexCount * instances.stream().mapToInt(p -> p.primitiveIndices().length - p.skippedPrimitivesStart() - p.skippedPrimitivesEnd()).sum());
+        indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount);
+        long sizeBytes = (long) indexCount * indexType.size;
         // add with alignment
         long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> alignPowerOf2(prev, indexType.size) + add);
         long startingPosAligned = alignPowerOf2(startingPosUnaligned, indexType.size);
@@ -173,13 +174,16 @@ public class InstanceBatch {
         int lastIndex = 0;
         for (PerInstanceData instanceData : instances) {
             int[] primitiveIndices = instanceData.primitiveIndices();
-            int skippedPrimitives = instanceData.skippedPrimitives();
-            for (int i = skippedPrimitives; i < primitiveIndices.length; i++) {
+            int skippedPrimitivesStart = instanceData.skippedPrimitivesStart();
+            int skippedPrimitivesEnd = instanceData.skippedPrimitivesEnd();
+            for (int i = skippedPrimitivesStart; i < primitiveIndices.length - skippedPrimitivesEnd; i++) {
                 int indexStart = lastIndex + primitiveIndices[i] * drawMode.vertexCount;
                 indexWriter.writeIndices(ptr, indexStart, drawMode.vertexCount);
                 ptr += (long) drawMode.getSize(drawMode.vertexCount) * indexType.size;
             }
-            lastIndex += (primitiveIndices.length - skippedPrimitives) * drawMode.vertexCount;
+            // we want to include the skipped primitives because the index needs to be calculated to the corresponding instance
+            lastIndex += primitiveIndices.length * drawMode.vertexCount;
+            // (primitiveIndices.length - skippedPrimitivesStart - skippedPrimitivesEnd) * drawMode.vertexCount;
         }
     }
 
@@ -280,6 +284,10 @@ public class InstanceBatch {
 
     public VertexFormat.IntType getIndexType() {
         return indexType;
+    }
+
+    public int getIndexCount() {
+        return indexCount;
     }
 
 }

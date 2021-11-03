@@ -267,8 +267,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
         RenderSystem.setupShaderLights(shader);
         shader.bind();
-        int indexCount = vba.getVertexCount();
-        GL31C.glDrawElements(vba.getDrawMode().mode, indexCount * batch.size(), batch.getIndexType().count, batch.getIndexOffset());
+        GL31C.glDrawElements(vba.getDrawMode().mode, batch.getIndexCount(), batch.getIndexType().count, batch.getIndexOffset());
         shader.unbind();
 
         // TODO Unbind EBO?

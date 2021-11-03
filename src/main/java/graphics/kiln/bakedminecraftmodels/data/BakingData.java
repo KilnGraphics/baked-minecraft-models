@@ -110,12 +110,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.entrySet()) {
                 InstanceBatch instanceBatch = perModelData.getValue();
                 VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) perModelData.getKey().getBakedVertices();
-
                 instanceBatch.writeInstancesToBuffer(modelPersistentSsbo);
-
-                VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-                int indexCount = vertexBufferAccessor.getVertexCount();
-                instanceBatch.writeIndicesToBuffer(drawMode, indexCount, translucencyPersistentEbo);
+                instanceBatch.writeIndicesToBuffer(vertexBufferAccessor.getDrawMode(), translucencyPersistentEbo);
             }
         }
     }
