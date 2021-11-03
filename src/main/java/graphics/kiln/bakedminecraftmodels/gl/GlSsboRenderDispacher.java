@@ -148,15 +148,21 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
                         if (currentVertexBuffer == null) {
                             currentVertexBuffer = nextVertexBuffer;
                             vertexBufferAccessor.invokeBindVertexArray();
-                            vertexBufferAccessor.invokeBind();
-                            if (requiresIndexing) GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                            if (requiresIndexing) {
+                                GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                            } else {
+                                vertexBufferAccessor.invokeBind();
+                            }
                             currentVertexBuffer.getElementFormat().startDrawing();
                         } else if (!currentVertexBuffer.equals(nextVertexBuffer)) {
                             currentVertexBuffer.getElementFormat().endDrawing();
                             currentVertexBuffer = nextVertexBuffer;
                             vertexBufferAccessor.invokeBindVertexArray();
-                            vertexBufferAccessor.invokeBind();
-                            if (requiresIndexing) GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                            if (requiresIndexing) {
+                                GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                            } else {
+                                vertexBufferAccessor.invokeBind();
+                            }
                             currentVertexBuffer.getElementFormat().startDrawing();
                         }
 
