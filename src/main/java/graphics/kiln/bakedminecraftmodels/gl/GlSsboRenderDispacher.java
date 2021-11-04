@@ -270,7 +270,6 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         shader.bind();
         VertexFormat.DrawMode drawMode = vba.getDrawMode();
         VertexFormat.IntType indexType = batch.getIndexType();
-        // the ceiling accounts for the adding from alignment earlier MathHelper.ceil((double) sectionStartPos / indexType.size)
         GL11.glDrawElements(drawMode.mode, batch.getIndexCount(), indexType.count, sectionStartPos + batch.getIndexPointerOffset());
         shader.unbind();
 
