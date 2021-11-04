@@ -8,7 +8,6 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
-import graphics.kiln.bakedminecraftmodels.util.AlignmentUtil;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormat;
@@ -29,7 +28,7 @@ public class InstanceBatch {
     private SectionedPersistentBuffer partBuffer;
 
     private VertexFormat.IntType indexType;
-    private long indexPtrOffset;
+    private long indexStartingPos;
     private int indexCount;
 
     public InstanceBatch(VboBackedModel model, boolean indexed, int initialSize, SectionedPersistentBuffer partBuffer) {
@@ -49,7 +48,7 @@ public class InstanceBatch {
         matrices.clear();
 
         indexType = null;
-        indexPtrOffset = 0;
+        indexStartingPos = 0;
         indexCount = 0;
     }
 
@@ -173,10 +172,9 @@ public class InstanceBatch {
         indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount);
         long sizeBytes = (long) indexCount * indexType.size;
         // add with alignment
-        long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> AlignmentUtil.alignPowerOf2(prev, indexType.size) + add);
-        indexPtrOffset = AlignmentUtil.alignPowerOf2(startingPosUnaligned, indexType.size);
+        indexStartingPos = buffer.getPositionOffset().getAndAccumulate(sizeBytes, Long::sum);
         // sectioned pointer also has to be aligned
-        long ptr = buffer.getSectionedPointer() + indexPtrOffset;
+        long ptr = buffer.getSectionedPointer() + indexStartingPos;
 
         IndexWriter indexWriter = getIndexFunction(indexType, drawMode);
         int lastIndex = 0;
@@ -279,8 +277,8 @@ public class InstanceBatch {
         return function;
     }
 
-    public long getIndexPointerOffset() {
-        return indexPtrOffset;
+    public long getIndexStartingPos() {
+        return indexStartingPos;
     }
 
     public VertexFormat.IntType getIndexType() {

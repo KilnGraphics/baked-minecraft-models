@@ -270,7 +270,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
         shader.bind();
         VertexFormat.DrawMode drawMode = vba.getDrawMode();
         VertexFormat.IntType indexType = batch.getIndexType();
-        GL11.glDrawElements(drawMode.mode, batch.getIndexCount(), indexType.count, sectionStartPos + batch.getIndexPointerOffset());
+        GL11.glDrawElements(drawMode.mode, batch.getIndexCount(), indexType.count, sectionStartPos + batch.getIndexStartingPos());
         shader.unbind();
 
         // TODO Unbind EBO?
