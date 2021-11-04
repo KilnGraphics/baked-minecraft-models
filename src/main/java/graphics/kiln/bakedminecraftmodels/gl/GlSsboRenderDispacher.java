@@ -12,9 +12,6 @@ import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
 import graphics.kiln.bakedminecraftmodels.data.InstanceBatch;
 import graphics.kiln.bakedminecraftmodels.debug.DebugInfo;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
-import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
-import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
-import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.RenderPhaseAccessor;
 import graphics.kiln.bakedminecraftmodels.model.GlobalModelUtils;
 import graphics.kiln.bakedminecraftmodels.model.InstancedRenderDispatcher;
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
@@ -69,186 +66,184 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
     @SuppressWarnings("ConstantConditions")
     public void renderQueues() {
-        if (!GlobalModelUtils.bakingData.isEmptyShallow()) {
+        if (GlobalModelUtils.bakingData.isEmptyShallow()) return;
 
-            long currentPartSyncObject = syncObjects.getCurrentSyncObject();
+        long currentPartSyncObject = syncObjects.getCurrentSyncObject();
 
-            if (currentPartSyncObject != MemoryUtil.NULL) {
-                int waitResult = GL32C.glClientWaitSync(currentPartSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 10000000); // 10 seconds
-                if (waitResult == GL32C.GL_WAIT_FAILED || waitResult == GL32C.GL_TIMEOUT_EXPIRED) {
-                    BakedMinecraftModels.LOGGER.error("OpenGL sync failed");
-                }
+        if (currentPartSyncObject != MemoryUtil.NULL) {
+            int waitResult = GL32C.glClientWaitSync(currentPartSyncObject, GL32C.GL_SYNC_FLUSH_COMMANDS_BIT, 10000000); // 10 seconds
+            if (waitResult == GL32C.GL_WAIT_FAILED || waitResult == GL32C.GL_TIMEOUT_EXPIRED) {
+                BakedMinecraftModels.LOGGER.error("OpenGL sync failed, err code: " + waitResult);
             }
-
-            GlobalModelUtils.bakingData.writeData();
-
-            long partSectionStartPos = partPersistentSsbo.getCurrentSection() * partPersistentSsbo.getSectionSize();
-            long modelSectionStartPos = modelPersistentSsbo.getCurrentSection() * modelPersistentSsbo.getSectionSize();
-            long translucencySectionStartPos = translucencyPersistentEbo.getCurrentSection() * translucencyPersistentEbo.getSectionSize();
-            long partLength = partPersistentSsbo.getPositionOffset().getAcquire();
-            long modelLength = modelPersistentSsbo.getPositionOffset().getAcquire();
-            long translucencyLength = translucencyPersistentEbo.getPositionOffset().getAcquire();
-
-            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPersistentSsbo.getName());
-            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partLength);
-
-            GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPersistentSsbo.getName());
-            GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelLength);
-
-            GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, translucencyPersistentEbo.getName());
-            GL30C.glFlushMappedBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, translucencySectionStartPos, translucencyLength);
-
-            if (currentPartSyncObject != MemoryUtil.NULL) {
-                GL32C.glDeleteSync(currentPartSyncObject);
-            }
-            syncObjects.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
-
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPersistentSsbo.getName(), partSectionStartPos, partLength);
-            GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPersistentSsbo.getName(), modelSectionStartPos, modelLength);
-
-            DebugInfo.currentPartBufferSize = partLength;
-            DebugInfo.currentModelBufferSize = modelLength;
-            DebugInfo.currentTranslucencyEboSize = translucencyLength;
-            partPersistentSsbo.nextSection();
-            modelPersistentSsbo.nextSection();
-            translucencyPersistentEbo.nextSection();
-            syncObjects.nextSection();
-
-            int instanceOffset = 0;
-
-            RenderLayer currentRenderLayer = null;
-            VertexBuffer currentVertexBuffer = null;
-            BufferRenderer.unbindAll();
-
-            for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : GlobalModelUtils.bakingData) {
-
-                for (Map.Entry<RenderLayer, Map<VboBackedModel, InstanceBatch>> perRenderLayerData : perOrderedSectionData.entrySet()) {
-                    RenderLayer nextRenderLayer = perRenderLayerData.getKey();
-                    if (currentRenderLayer == null) {
-                        currentRenderLayer = nextRenderLayer;
-                        currentRenderLayer.startDrawing();
-                    } else if (!currentRenderLayer.equals(nextRenderLayer)) {
-                        currentRenderLayer.endDrawing();
-                        currentRenderLayer = nextRenderLayer;
-                        currentRenderLayer.startDrawing();
-                    }
-
-                    Shader shader = RenderSystem.getShader();
-
-                    MultiPhaseParametersAccessor multiPhaseParameters = (MultiPhaseParametersAccessor) (Object) ((MultiPhaseRenderPassAccessor) nextRenderLayer).getPhases();
-
-                    for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.getValue().entrySet()) {
-                        VboBackedModel model = perModelData.getKey();
-                        VertexBuffer nextVertexBuffer = model.getBakedVertices();
-                        VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
-                        int vertexCount = vertexBufferAccessor.getVertexCount();
-                        if (vertexCount <= 0) continue;
-                        boolean requiresIndexing = requiresIndexing(multiPhaseParameters);
-
-                        if (currentVertexBuffer == null) {
-                            currentVertexBuffer = nextVertexBuffer;
-                            vertexBufferAccessor.invokeBindVertexArray();
-                            if (requiresIndexing) {
-                                GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
-                            } else {
-                                vertexBufferAccessor.invokeBind();
-                            }
-                            currentVertexBuffer.getElementFormat().startDrawing();
-                        } else if (!currentVertexBuffer.equals(nextVertexBuffer)) {
-                            currentVertexBuffer.getElementFormat().endDrawing();
-                            currentVertexBuffer = nextVertexBuffer;
-                            vertexBufferAccessor.invokeBindVertexArray();
-                            if (requiresIndexing) {
-                                GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
-                            } else {
-                                vertexBufferAccessor.invokeBind();
-                            }
-                            currentVertexBuffer.getElementFormat().startDrawing();
-                        }
-
-                        VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
-                        InstanceBatch instanceBatch = perModelData.getValue();
-                        int instanceCount = instanceBatch.size();
-                        if (instanceCount <= 0) continue;
-
-                        for (int i = 0; i < 12; ++i) {
-                            int j = RenderSystem.getShaderTexture(i);
-                            shader.addSampler("Sampler" + i, j);
-                        }
-
-                        if (shader.projectionMat != null) {
-                            shader.projectionMat.set(RenderSystem.getProjectionMatrix());
-                        }
-
-                        if (shader.colorModulator != null) {
-                            shader.colorModulator.set(RenderSystem.getShaderColor());
-                        }
-
-                        if (shader.fogStart != null) {
-                            shader.fogStart.set(RenderSystem.getShaderFogStart());
-                        }
-
-                        if (shader.fogEnd != null) {
-                            shader.fogEnd.set(RenderSystem.getShaderFogEnd());
-                        }
-
-                        if (shader.fogColor != null) {
-                            shader.fogColor.set(RenderSystem.getShaderFogColor());
-                        }
-
-                        if (shader.textureMat != null) {
-                            shader.textureMat.set(RenderSystem.getTextureMatrix());
-                        }
-
-                        if (shader.gameTime != null) {
-                            shader.gameTime.set(RenderSystem.getShaderGameTime());
-                        }
-
-                        if (shader.screenSize != null) {
-                            Window window = MinecraftClient.getInstance().getWindow();
-                            shader.screenSize.set((float) window.getFramebufferWidth(), (float) window.getFramebufferHeight());
-                        }
-
-                        if (shader.lineWidth != null && (drawMode == VertexFormat.DrawMode.LINES || drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
-                            shader.lineWidth.set(RenderSystem.getShaderLineWidth());
-                        }
-
-                        // we have to manually get it from the shader every time because different shaders have different uniform objects for the same uniform.
-                        GlUniform instanceOffsetUniform = shader.getUniform("InstanceOffset");
-                        if (instanceOffsetUniform != null) {
-                            instanceOffsetUniform.set(instanceOffset);
-                        }
-
-                        if (requiresIndexing) {
-                            drawSortedFakeInstanced(instanceBatch, shader, vertexBufferAccessor, model.getVertexCount());
-                        } else {
-                            RenderSystem.setupShaderLights(shader);
-                            shader.bind();
-                            GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
-                            shader.unbind();
-                        }
-
-                        instanceOffset += instanceCount;
-
-                        DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(model.getClass().getSimpleName(), ignored -> new DebugInfo.ModelDebugInfo());
-                        currentDebugInfo.instances += instanceCount;
-                        currentDebugInfo.sets++;
-
-                        GlobalModelUtils.bakingData.recycleInstanceBatch(instanceBatch);
-                    }
-                }
-            }
-
-            if (currentVertexBuffer != null) {
-                currentVertexBuffer.getElementFormat().endDrawing();
-            }
-
-            if (currentRenderLayer != null) {
-                currentRenderLayer.endDrawing();
-            }
-
-            GlobalModelUtils.bakingData.reset();
         }
+
+        GlobalModelUtils.bakingData.writeData();
+
+        long partSectionStartPos = partPersistentSsbo.getCurrentSection() * partPersistentSsbo.getSectionSize();
+        long modelSectionStartPos = modelPersistentSsbo.getCurrentSection() * modelPersistentSsbo.getSectionSize();
+        long translucencySectionStartPos = translucencyPersistentEbo.getCurrentSection() * translucencyPersistentEbo.getSectionSize();
+        long partLength = partPersistentSsbo.getPositionOffset().getAcquire();
+        long modelLength = modelPersistentSsbo.getPositionOffset().getAcquire();
+        long translucencyLength = translucencyPersistentEbo.getPositionOffset().getAcquire();
+
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partPersistentSsbo.getName());
+        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, partSectionStartPos, partLength);
+
+        GlStateManager._glBindBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelPersistentSsbo.getName());
+        GL30C.glFlushMappedBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, modelSectionStartPos, modelLength);
+
+        GlStateManager._glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, translucencyPersistentEbo.getName());
+        GL30C.glFlushMappedBufferRange(GL15.GL_ELEMENT_ARRAY_BUFFER, translucencySectionStartPos, translucencyLength);
+
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 1, partPersistentSsbo.getName(), partSectionStartPos, partLength);
+        GL30C.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 2, modelPersistentSsbo.getName(), modelSectionStartPos, modelLength);
+
+        DebugInfo.currentPartBufferSize = partLength;
+        DebugInfo.currentModelBufferSize = modelLength;
+        DebugInfo.currentTranslucencyEboSize = translucencyLength;
+        partPersistentSsbo.nextSection();
+        modelPersistentSsbo.nextSection();
+        translucencyPersistentEbo.nextSection();
+
+        int instanceOffset = 0;
+
+        RenderLayer currentRenderLayer = null;
+        VertexBuffer currentVertexBuffer = null;
+        BufferRenderer.unbindAll();
+
+        for (Map<RenderLayer, Map<VboBackedModel, InstanceBatch>> perOrderedSectionData : GlobalModelUtils.bakingData) {
+
+            for (Map.Entry<RenderLayer, Map<VboBackedModel, InstanceBatch>> perRenderLayerData : perOrderedSectionData.entrySet()) {
+                RenderLayer nextRenderLayer = perRenderLayerData.getKey();
+                if (currentRenderLayer == null) {
+                    currentRenderLayer = nextRenderLayer;
+                    currentRenderLayer.startDrawing();
+                } else if (!currentRenderLayer.equals(nextRenderLayer)) {
+                    currentRenderLayer.endDrawing();
+                    currentRenderLayer = nextRenderLayer;
+                    currentRenderLayer.startDrawing();
+                }
+
+                Shader shader = RenderSystem.getShader();
+
+                for (Map.Entry<VboBackedModel, InstanceBatch> perModelData : perRenderLayerData.getValue().entrySet()) {
+                    VboBackedModel model = perModelData.getKey();
+                    VertexBuffer nextVertexBuffer = model.getBakedVertices();
+                    VertexBufferAccessor vertexBufferAccessor = (VertexBufferAccessor) nextVertexBuffer;
+                    int vertexCount = vertexBufferAccessor.getVertexCount();
+                    if (vertexCount <= 0) continue;
+
+                    InstanceBatch instanceBatch = perModelData.getValue();
+                    boolean isIndexed = instanceBatch.isIndexed();
+
+                    if (currentVertexBuffer == null) {
+                        currentVertexBuffer = nextVertexBuffer;
+                        vertexBufferAccessor.invokeBindVertexArray();
+                        if (isIndexed) {
+                            GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                        } else {
+                            vertexBufferAccessor.invokeBind();
+                        }
+                        currentVertexBuffer.getElementFormat().startDrawing();
+                    } else if (!currentVertexBuffer.equals(nextVertexBuffer)) {
+                        currentVertexBuffer.getElementFormat().endDrawing();
+                        currentVertexBuffer = nextVertexBuffer;
+                        vertexBufferAccessor.invokeBindVertexArray();
+                        if (isIndexed) {
+                            GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
+                        } else {
+                            vertexBufferAccessor.invokeBind();
+                        }
+                        currentVertexBuffer.getElementFormat().startDrawing();
+                    }
+
+                    VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
+                    int instanceCount = instanceBatch.size();
+                    if (instanceCount <= 0) continue;
+
+                    for (int i = 0; i < 12; ++i) {
+                        int j = RenderSystem.getShaderTexture(i);
+                        shader.addSampler("Sampler" + i, j);
+                    }
+
+                    if (shader.projectionMat != null) {
+                        shader.projectionMat.set(RenderSystem.getProjectionMatrix());
+                    }
+
+                    if (shader.colorModulator != null) {
+                        shader.colorModulator.set(RenderSystem.getShaderColor());
+                    }
+
+                    if (shader.fogStart != null) {
+                        shader.fogStart.set(RenderSystem.getShaderFogStart());
+                    }
+
+                    if (shader.fogEnd != null) {
+                        shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+                    }
+
+                    if (shader.fogColor != null) {
+                        shader.fogColor.set(RenderSystem.getShaderFogColor());
+                    }
+
+                    if (shader.textureMat != null) {
+                        shader.textureMat.set(RenderSystem.getTextureMatrix());
+                    }
+
+                    if (shader.gameTime != null) {
+                        shader.gameTime.set(RenderSystem.getShaderGameTime());
+                    }
+
+                    if (shader.screenSize != null) {
+                        Window window = MinecraftClient.getInstance().getWindow();
+                        shader.screenSize.set((float) window.getFramebufferWidth(), (float) window.getFramebufferHeight());
+                    }
+
+                    if (shader.lineWidth != null && (drawMode == VertexFormat.DrawMode.LINES || drawMode == VertexFormat.DrawMode.LINE_STRIP)) {
+                        shader.lineWidth.set(RenderSystem.getShaderLineWidth());
+                    }
+
+                    // we have to manually get it from the shader every time because different shaders have different uniform objects for the same uniform.
+                    GlUniform instanceOffsetUniform = shader.getUniform("InstanceOffset");
+                    if (instanceOffsetUniform != null) {
+                        instanceOffsetUniform.set(instanceOffset);
+                    }
+
+                    if (isIndexed) {
+                        drawSortedFakeInstanced(instanceBatch, shader, vertexBufferAccessor, model.getVertexCount(), translucencySectionStartPos);
+                    } else {
+                        RenderSystem.setupShaderLights(shader);
+                        shader.bind();
+                        GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
+                        shader.unbind();
+                    }
+
+                    instanceOffset += instanceCount;
+
+                    DebugInfo.ModelDebugInfo currentDebugInfo = DebugInfo.modelToDebugInfoMap.computeIfAbsent(model.getClass().getSimpleName(), ignored -> new DebugInfo.ModelDebugInfo());
+                    currentDebugInfo.instances += instanceCount;
+                    currentDebugInfo.sets++;
+
+                    GlobalModelUtils.bakingData.recycleInstanceBatch(instanceBatch);
+                }
+            }
+        }
+
+        if (currentVertexBuffer != null) {
+            currentVertexBuffer.getElementFormat().endDrawing();
+        }
+
+        if (currentRenderLayer != null) {
+            currentRenderLayer.endDrawing();
+        }
+
+        if (currentPartSyncObject != MemoryUtil.NULL) {
+            GL32C.glDeleteSync(currentPartSyncObject);
+        }
+        syncObjects.setCurrentSyncObject(GL32C.glFenceSync(GL32C.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+        syncObjects.nextSection();
+
+        GlobalModelUtils.bakingData.reset();
     }
 
     /**
@@ -258,7 +253,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
      * thing here is that we have control of the draw order - we can sort the elements by depth
      * from the camera, and use this to batch the rendering of transparent objects.
      */
-    private void drawSortedFakeInstanced(InstanceBatch batch, Shader shader, VertexBufferAccessor vba, int vertexCount) {
+    private void drawSortedFakeInstanced(InstanceBatch batch, Shader shader, VertexBufferAccessor vba, int vertexCount, long sectionStartPos) {
         GlUniform countUniform = shader.getUniform("InstanceVertCount");
         if (countUniform != null) {
             countUniform.set(vertexCount);
@@ -273,20 +268,14 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
 
         RenderSystem.setupShaderLights(shader);
         shader.bind();
-        GL31C.glDrawElements(vba.getDrawMode().mode, batch.getIndexCount(), batch.getIndexType().count, batch.getIndexOffset());
+        VertexFormat.DrawMode drawMode = vba.getDrawMode();
+        VertexFormat.IntType indexType = batch.getIndexType();
+        // the ceiling accounts for the adding from alignment earlier MathHelper.ceil((double) sectionStartPos / indexType.size)
+        GL11.glDrawElements(drawMode.mode, batch.getIndexCount(), indexType.count, sectionStartPos + batch.getIndexPointerOffset());
         shader.unbind();
 
         // TODO Unbind EBO?
         // (from burger) the next thing that comes across will replace the binding, so it's probably not needed
     }
 
-    // TODO: move this somewhere else
-    @SuppressWarnings("ConstantConditions")
-    public static boolean requiresIndexing(MultiPhaseParametersAccessor multiPhaseParameters) {
-        // instanced: opaque and additive with depth write off
-        // index buffer: everything else
-        String transparencyName = multiPhaseParameters.getTransparency().toString();
-        return !transparencyName.equals("no_transparency")
-                && !(transparencyName.equals("additive_transparency") && multiPhaseParameters.getWriteMaskState().equals(RenderPhaseAccessor.getColorMask()));
-    }
 }

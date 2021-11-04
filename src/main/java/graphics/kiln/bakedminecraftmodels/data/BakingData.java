@@ -8,7 +8,6 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import com.google.common.collect.Iterators;
 import graphics.kiln.bakedminecraftmodels.BakedMinecraftModels;
-import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.VertexBufferAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseParametersAccessor;
 import graphics.kiln.bakedminecraftmodels.mixin.renderlayer.MultiPhaseRenderPassAccessor;
@@ -18,7 +17,6 @@ import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.render.VertexFormat;
 
 import java.io.Closeable;
 import java.util.*;
@@ -91,7 +89,7 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                     if (recycledBatch != null) {
                         return recycledBatch;
                     } else {
-                        return new InstanceBatch(model1, GlSsboRenderDispacher.requiresIndexing(multiPhaseParameters), INITIAL_BATCH_CAPACITY, partPersistentSsbo);
+                        return new InstanceBatch(model1, requiresIndexing(multiPhaseParameters), INITIAL_BATCH_CAPACITY, partPersistentSsbo);
                     }
                 });
     }
@@ -165,6 +163,15 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
             }
         }
         closeables.clear();
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    public static boolean requiresIndexing(MultiPhaseParametersAccessor multiPhaseParameters) {
+        // instanced: opaque and additive with depth write off
+        // index buffer: everything else
+        String transparencyName = multiPhaseParameters.getTransparency().toString();
+        return !transparencyName.equals("no_transparency")
+                && !(transparencyName.equals("additive_transparency") && multiPhaseParameters.getWriteMaskState().equals(RenderPhaseAccessor.getColorMask()));
     }
 
 }

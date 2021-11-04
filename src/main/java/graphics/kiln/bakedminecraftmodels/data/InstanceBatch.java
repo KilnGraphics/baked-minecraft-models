@@ -8,6 +8,7 @@ package graphics.kiln.bakedminecraftmodels.data;
 
 import graphics.kiln.bakedminecraftmodels.model.VboBackedModel;
 import graphics.kiln.bakedminecraftmodels.ssbo.SectionedPersistentBuffer;
+import graphics.kiln.bakedminecraftmodels.util.AlignmentUtil;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormat;
@@ -27,7 +28,7 @@ public class InstanceBatch {
     private final MatrixEntryList matrices;
 
     private VertexFormat.IntType indexType;
-    private long indexOffset;
+    private long indexPtrOffset;
     private int indexCount;
 
     public InstanceBatch(VboBackedModel model, boolean indexed, int initialSize, SectionedPersistentBuffer partBuffer) {
@@ -43,7 +44,7 @@ public class InstanceBatch {
         matrices.clear();
 
         indexType = null;
-        indexOffset = 0;
+        indexPtrOffset = 0;
     }
 
     public boolean isIndexed() {
@@ -161,15 +162,15 @@ public class InstanceBatch {
     public void writeIndicesToBuffer(VertexFormat.DrawMode drawMode, SectionedPersistentBuffer buffer) {
         if (!isIndexed()) return;
 
+        // this is pretty slow
         indexCount = drawMode.getSize(drawMode.vertexCount * instances.stream().mapToInt(p -> p.primitiveIndices().length - p.skippedPrimitivesStart() - p.skippedPrimitivesEnd()).sum());
         indexType = VertexFormat.IntType.getSmallestTypeFor(indexCount);
         long sizeBytes = (long) indexCount * indexType.size;
         // add with alignment
-        long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> alignPowerOf2(prev, indexType.size) + add);
-        long startingPosAligned = alignPowerOf2(startingPosUnaligned, indexType.size);
-        indexOffset = startingPosAligned / indexType.size;
-        // TODO: is the sectioned pointer always aligned to what we want? does it need to be aligned?
-        long ptr = buffer.getSectionedPointer() + startingPosAligned;
+        long startingPosUnaligned = buffer.getPositionOffset().getAndAccumulate(sizeBytes, (prev, add) -> AlignmentUtil.alignPowerOf2(prev, indexType.size) + add);
+        indexPtrOffset = AlignmentUtil.alignPowerOf2(startingPosUnaligned, indexType.size);
+        // sectioned pointer also has to be aligned
+        long ptr = buffer.getSectionedPointer() + indexPtrOffset;
 
         IndexWriter indexWriter = getIndexFunction(indexType, drawMode);
         int lastIndex = 0;
@@ -272,15 +273,8 @@ public class InstanceBatch {
         return function;
     }
 
-    // multiple must be a power of 2
-    private static long alignPowerOf2(long numToRound, long multiple) {
-        // TODO: make sure this always works
-        //noinspection UnnecessaryParentheses
-        return (numToRound + multiple - 1) & -multiple;
-    }
-
-    public long getIndexOffset() {
-        return indexOffset;
+    public long getIndexPointerOffset() {
+        return indexPtrOffset;
     }
 
     public VertexFormat.IntType getIndexType() {
