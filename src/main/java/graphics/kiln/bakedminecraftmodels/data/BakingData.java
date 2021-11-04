@@ -84,9 +84,8 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
                 .computeIfAbsent(renderLayer, unused -> new LinkedHashMap<>())
                 .computeIfAbsent(model, model1 -> {
                     InstanceBatch recycledBatch = batchPool.pollFirst();
-                    // we want to keep the lambda in this format, so we create only one instead of two
-                    //noinspection ReplaceNullCheck
                     if (recycledBatch != null) {
+                        recycledBatch.reset(model1, requiresIndexing(multiPhaseParameters), partPersistentSsbo);
                         return recycledBatch;
                     } else {
                         return new InstanceBatch(model1, requiresIndexing(multiPhaseParameters), INITIAL_BATCH_CAPACITY, partPersistentSsbo);
@@ -95,7 +94,6 @@ public class BakingData implements Closeable, Iterable<Map<RenderLayer, Map<VboB
     }
 
     public void recycleInstanceBatch(InstanceBatch instanceBatch) {
-        instanceBatch.reset();
         batchPool.add(instanceBatch);
     }
 

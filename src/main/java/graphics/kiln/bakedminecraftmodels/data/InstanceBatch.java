@@ -21,11 +21,12 @@ import java.util.List;
 
 public class InstanceBatch {
 
-    private final VboBackedModel model;
-    private final boolean indexed;
-    private final SectionedPersistentBuffer partBuffer;
     private final List<PerInstanceData> instances;
     private final MatrixEntryList matrices;
+
+    private VboBackedModel model;
+    private boolean indexed;
+    private SectionedPersistentBuffer partBuffer;
 
     private VertexFormat.IntType indexType;
     private long indexPtrOffset;
@@ -34,17 +35,22 @@ public class InstanceBatch {
     public InstanceBatch(VboBackedModel model, boolean indexed, int initialSize, SectionedPersistentBuffer partBuffer) {
         this.instances = new ArrayList<>(initialSize);
         this.matrices = new MatrixEntryList(initialSize);
-        this.partBuffer = partBuffer;
         this.model = model;
         this.indexed = indexed;
+        this.partBuffer = partBuffer;
     }
 
-    public void reset() {
+    public void reset(VboBackedModel model, boolean indexed, SectionedPersistentBuffer partBuffer) {
+        this.model = model;
+        this.indexed = indexed;
+        this.partBuffer = partBuffer;
+
         instances.clear();
         matrices.clear();
 
         indexType = null;
         indexPtrOffset = 0;
+        indexCount = 0;
     }
 
     public boolean isIndexed() {
