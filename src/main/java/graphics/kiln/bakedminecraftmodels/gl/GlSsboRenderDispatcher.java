@@ -36,7 +36,7 @@ public class GlSsboRenderDispatcher implements InstancedRenderDispatcher {
     public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_SECTIONS = 3;
     public static final long PART_PBO_SIZE = 9175040L; // 8.75 MiB
-    public static final long MODEL_PBO_SIZE = 524288L; // 500 KiB
+    public static final long MODEL_PBO_SIZE = 524288L; // 512 KiB
     public static final long TRANSLUCENT_EBO_SIZE = 512 * 1024; // 512 KiB - TODO figure out what a reasonable value is
 
     public final SectionedPersistentBuffer partPersistentSsbo;
