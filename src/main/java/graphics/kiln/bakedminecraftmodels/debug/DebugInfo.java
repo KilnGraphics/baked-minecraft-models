@@ -6,7 +6,7 @@
 
 package graphics.kiln.bakedminecraftmodels.debug;
 
-import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
+import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispatcher;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import java.text.DecimalFormat;
@@ -16,9 +16,9 @@ public class DebugInfo {
     public static final Map<String, ModelDebugInfo> modelToDebugInfoMap = new Object2ObjectOpenHashMap<>();
 
     public static final DecimalFormat sizeFormatter = new DecimalFormat("0.00");
-    public static final String PART_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispacher.PART_PBO_SIZE) + " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
-    public static final String MODEL_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispacher.MODEL_PBO_SIZE) + " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
-    public static final String TRANSLUCENCY_EBO_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispacher.TRANSLUCENT_EBO_SIZE) + " (x" + GlSsboRenderDispacher.BUFFER_SECTIONS + " Buffered)";
+    public static final String PART_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispatcher.PART_PBO_SIZE) + " (x" + GlSsboRenderDispatcher.BUFFER_SECTIONS + " Buffered)";
+    public static final String MODEL_BUFFER_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispatcher.MODEL_PBO_SIZE) + " (x" + GlSsboRenderDispatcher.BUFFER_SECTIONS + " Buffered)";
+    public static final String TRANSLUCENCY_EBO_SUFFIX = " / " + getSizeReadable(GlSsboRenderDispatcher.TRANSLUCENT_EBO_SIZE) + " (x" + GlSsboRenderDispatcher.BUFFER_SECTIONS + " Buffered)";
     public static long currentPartBufferSize;
     public static long currentModelBufferSize;
     public static long currentTranslucencyEboSize;

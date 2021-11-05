@@ -7,7 +7,7 @@
 package graphics.kiln.bakedminecraftmodels.model;
 
 import graphics.kiln.bakedminecraftmodels.data.BakingData;
-import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispacher;
+import graphics.kiln.bakedminecraftmodels.gl.GlSsboRenderDispatcher;
 import graphics.kiln.bakedminecraftmodels.mixin.buffer.SpriteTexturedVertexConsumerAccessor;
 import graphics.kiln.bakedminecraftmodels.vertex.SmartBufferBuilderWrapper;
 import net.minecraft.client.render.BufferBuilder;
@@ -23,7 +23,7 @@ public class GlobalModelUtils {
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
     // FIXME: not thread safe, but making one per instance is slow
     public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(32768); // just some random initial capacity lol
-    public static final GlSsboRenderDispacher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispacher();
+    public static final GlSsboRenderDispatcher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispatcher();
     public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPersistentSsbo, INSTANCED_RENDER_DISPATCHER.partPersistentSsbo, INSTANCED_RENDER_DISPATCHER.translucencyPersistentEbo);
 
     public static VertexConsumer getNestedBufferBuilder(VertexConsumer consumer) { // TODO: add more possibilities with this method, ex outline consumers

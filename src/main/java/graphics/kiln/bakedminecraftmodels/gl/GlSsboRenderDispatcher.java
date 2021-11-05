@@ -30,7 +30,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.util.Map;
 
-public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
+public class GlSsboRenderDispatcher implements InstancedRenderDispatcher {
 
     public static final int BUFFER_CREATION_FLAGS = GL30C.GL_MAP_WRITE_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
     public static final int BUFFER_MAP_FLAGS = GL30C.GL_MAP_WRITE_BIT | GL30C.GL_MAP_FLUSH_EXPLICIT_BIT | ARBBufferStorage.GL_MAP_PERSISTENT_BIT;
@@ -44,7 +44,7 @@ public class GlSsboRenderDispacher implements InstancedRenderDispatcher {
     public final SectionedPersistentBuffer translucencyPersistentEbo;
     public final SectionedSyncObjects syncObjects;
 
-    public GlSsboRenderDispacher() {
+    public GlSsboRenderDispatcher() {
         partPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, PART_PBO_SIZE);
         modelPersistentSsbo = createPersistentBuffer(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, MODEL_PBO_SIZE);
         translucencyPersistentEbo = createPersistentBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, TRANSLUCENT_EBO_SIZE);
