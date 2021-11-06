@@ -214,7 +214,11 @@ public class GlSsboRenderDispatcher implements InstancedRenderDispatcher {
                     } else {
                         RenderSystem.setupShaderLights(shader);
                         shader.bind();
-                        GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
+                        if (instanceCount > 1) {
+                            GL31C.glDrawElementsInstanced(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL, instanceCount);
+                        } else {
+                            GL11.glDrawElements(drawMode.mode, vertexCount, vertexBufferAccessor.getVertexFormat().count, MemoryUtil.NULL);
+                        }
                         shader.unbind();
                     }
 

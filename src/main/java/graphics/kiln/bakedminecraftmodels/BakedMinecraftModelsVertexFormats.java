@@ -21,11 +21,10 @@ public class BakedMinecraftModelsVertexFormats {
                     // aligns vec2s to the 8-byte boundary, thus leaving a gap between the position and UV.
                     // TODO is the performance gain here worth the memory tradeoff of changing the struct packing
                     //  (whether directly or declaring a bunch of floats) and saving these four bytes per vert?
-                    .put("PosPad1", VertexFormats.PADDING_ELEMENT).put("PosPad2", VertexFormats.PADDING_ELEMENT)
-                    .put("PosPad3", VertexFormats.PADDING_ELEMENT).put("PosPad4", VertexFormats.PADDING_ELEMENT)
+                    .put("PosPad", new VertexFormatElement(0, VertexFormatElement.DataType.FLOAT, VertexFormatElement.Type.PADDING, 1))
                     .put("UV0", VertexFormats.TEXTURE_0_ELEMENT)
                     .put("Normal", VertexFormats.NORMAL_ELEMENT)
-                    .put("Padding", VertexFormats.PADDING_ELEMENT)
+                    .put("NormPad", VertexFormats.PADDING_ELEMENT)
                     .put("PartId", new VertexFormatElement(0, VertexFormatElement.DataType.UINT, VertexFormatElement.Type.UV, 1))
                     .build());
 }
