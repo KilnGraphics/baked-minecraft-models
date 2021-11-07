@@ -27,8 +27,8 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
     private int currentVert; // TODO: need better name for this
     private boolean firstPrimFinished;
 
-    public SmartBufferBuilderWrapper(int initialSize) {
-        this.internalBufferBuilder = new BufferBuilder(initialSize);
+    public SmartBufferBuilderWrapper(BufferBuilder bufferBuilder, int initialSize) {
+        this.internalBufferBuilder = bufferBuilder;
         this.primitivePositions = new FloatArrayList(initialSize);
         this.primitivePartIds = new IntArrayList(initialSize);
     }

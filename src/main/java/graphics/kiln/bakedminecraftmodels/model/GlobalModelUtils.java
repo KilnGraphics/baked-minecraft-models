@@ -22,7 +22,7 @@ public class GlobalModelUtils {
 
     public static final MatrixStack.Entry IDENTITY_STACK_ENTRY = new MatrixStack().peek();
     // FIXME: not thread safe, but making one per instance is slow
-    public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(32768); // just some random initial capacity lol
+    public static final SmartBufferBuilderWrapper VBO_BUFFER_BUILDER = new SmartBufferBuilderWrapper(new BufferBuilder(32768), 256); // just some random sizes lol
     public static final GlSsboRenderDispatcher INSTANCED_RENDER_DISPATCHER = new GlSsboRenderDispatcher();
     public static final BakingData bakingData = new BakingData(INSTANCED_RENDER_DISPATCHER.modelPersistentSsbo, INSTANCED_RENDER_DISPATCHER.partPersistentSsbo, INSTANCED_RENDER_DISPATCHER.translucencyPersistentEbo);
 
