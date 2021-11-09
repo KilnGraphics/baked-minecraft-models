@@ -129,9 +129,9 @@ public class SmartBufferBuilderWrapper implements VertexConsumer {
         BufferBuilderAccessor originalAccessor = (BufferBuilderAccessor) internalBufferBuilder;
 
         vertex(x, y, z); // Make sure we call this, to record the verts for the transparency stuff
-        internalBufferBuilder.texture(u, v).normal(normalX, normalY, normalZ);
         originalAccessor.getBuffer().putInt(originalAccessor.getElementOffset(), partId);
         internalBufferBuilder.nextElement();
+        internalBufferBuilder.texture(u, v).normal(normalX, normalY, normalZ);
         internalBufferBuilder.next();
     }
 

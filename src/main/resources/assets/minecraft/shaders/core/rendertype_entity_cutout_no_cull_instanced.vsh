@@ -4,9 +4,9 @@
 #moj_import <light.glsl>
 
 in vec3 Position;
+in uint PartId;
 in vec2 UV0;
 in vec3 Normal;
-in uint PartId;
 
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;

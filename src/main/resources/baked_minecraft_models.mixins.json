@@ -4,6 +4,7 @@
   "package": "graphics.kiln.bakedminecraftmodels.mixin",
   "compatibilityLevel": "JAVA_16",
   "mixins": [
+    "vertex.VertexFormatAccessor"
   ],
   "client": [
     "BufferRendererAccessor",

@@ -7,9 +7,9 @@
 // We use pull rendering - these values are in vertBufferSsbo
 // See PullVert for more information
 // in vec3 Position;
+// in uint PartId;
 // in vec2 UV0;
 // in vec3 Normal;
-// in uint PartId;
 
 uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
@@ -49,16 +49,15 @@ layout(std140, binding = 2) readonly restrict buffer modelsLayout {
 // mirror the normal vertex attributes that we would be passed in. Specifically we have to match
 // the layout of BakedMinecraftModelsVertexFormats.SMART_ENTITY_FORMAT
 struct PullVert {
-    vec3 Position;
-// Note there is an implicit four bytes of padding here from std140
+    // 4th element of the position is the part id
+    vec4 PosPartId;
     vec2 UV0;
     uint PackedNormal;// Format is byte-byte-byte-unused - see unpackSnorm4x8
-    uint PartId;
+    int pad;
 };
 layout(std140, binding = 3) readonly restrict buffer vertBufferLayout {
     PullVert[] verts;
 } vertBufferSsbo;
-
 
 out float vertexDistance;
 out vec4 vertexColor;
@@ -72,9 +71,9 @@ void main() {
     PullVert pv = vertBufferSsbo.verts[gl_VertexID % InstanceVertCount];
     vec3 Normal = unpackSnorm4x8(pv.PackedNormal).xyz;// Drop the fourth byte, it's unused
     Model model = modelsSsbo.models[InstanceOffset + instanceId];
-    ModelPart modelPart = modelPartsSsbo.modelParts[model.PartOffset + pv.PartId];
+    ModelPart modelPart = modelPartsSsbo.modelParts[model.PartOffset + floatBitsToUint(pv.PosPartId.w)];
 
-    vec4 multipliedPosition = modelPart.modelViewMat * vec4(pv.Position, 1.0);
+    vec4 multipliedPosition = modelPart.modelViewMat * vec4(pv.PosPartId.xyz, 1.0);
     gl_Position = ProjMat * multipliedPosition;
 
     vertexDistance = length(multipliedPosition.xyz);

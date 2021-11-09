@@ -8,9 +8,9 @@
     "fragment": "rendertype_entity_cutout_no_cull",
     "attributes": [
         "Position",
+        "PartId",
         "UV0",
-        "Normal",
-        "PartId"
+        "Normal"
     ],
     "samplers": [
         { "name": "Sampler0" },
