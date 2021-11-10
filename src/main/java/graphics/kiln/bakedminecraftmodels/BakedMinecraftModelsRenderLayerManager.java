@@ -40,8 +40,8 @@ public class BakedMinecraftModelsRenderLayerManager {
                 if (dumbShader != null) {
                     if (SHADER_CONVERSION_MAP == null) {
                         SHADER_CONVERSION_MAP = Map.of(
-                                GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_CUTOUT_NO_CULL,
-                                GameRenderer.getRenderTypeEntityTranslucentShader(), BakedMinecraftModelsShaderManager.SMART_ENTITY_TRANSLUCENT
+                                GameRenderer.getRenderTypeEntityCutoutNoNullShader(), BakedMinecraftModelsShaderManager.ENTITY_CUTOUT_NO_CULL_INSTANCED,
+                                GameRenderer.getRenderTypeEntityTranslucentShader(), BakedMinecraftModelsShaderManager.ENTITY_TRANSLUCENT_BATCHED
                         );
                     }
 
