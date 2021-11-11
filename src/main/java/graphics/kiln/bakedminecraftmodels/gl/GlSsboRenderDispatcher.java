@@ -115,11 +115,11 @@ public class GlSsboRenderDispatcher implements InstancedRenderDispatcher {
 
             for (Map.Entry<RenderLayer, Map<VboBackedModel, InstanceBatch>> perRenderLayerData : perOrderedSectionData.entrySet()) {
                 RenderLayer nextRenderLayer = perRenderLayerData.getKey();
-                if (currentRenderLayer == null) {
-                    currentRenderLayer = nextRenderLayer;
-                    currentRenderLayer.startDrawing();
-                } else if (!currentRenderLayer.equals(nextRenderLayer)) {
-                    currentRenderLayer.endDrawing();
+                boolean firstLayer = currentRenderLayer == null;
+                if (firstLayer || !currentRenderLayer.equals(nextRenderLayer)) {
+                    if (!firstLayer) {
+                        currentRenderLayer.endDrawing();
+                    }
                     currentRenderLayer = nextRenderLayer;
                     currentRenderLayer.startDrawing();
                 }
@@ -136,25 +136,19 @@ public class GlSsboRenderDispatcher implements InstancedRenderDispatcher {
                     InstanceBatch instanceBatch = perModelData.getValue();
                     boolean isIndexed = instanceBatch.isIndexed();
 
-                    if (currentVertexBuffer == null) {
+                    boolean firstVbo = currentVertexBuffer == null;
+                    if (firstVbo || !currentVertexBuffer.equals(nextVertexBuffer)) {
+                        if (!firstVbo) {
+                            currentVertexBuffer.getElementFormat().endDrawing();
+                        }
                         currentVertexBuffer = nextVertexBuffer;
                         vertexBufferAccessor.invokeBindVertexArray();
                         if (isIndexed) {
                             GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
                         } else {
                             vertexBufferAccessor.invokeBind();
+                            currentVertexBuffer.getElementFormat().startDrawing();
                         }
-                        currentVertexBuffer.getElementFormat().startDrawing();
-                    } else if (!currentVertexBuffer.equals(nextVertexBuffer)) {
-                        currentVertexBuffer.getElementFormat().endDrawing();
-                        currentVertexBuffer = nextVertexBuffer;
-                        vertexBufferAccessor.invokeBindVertexArray();
-                        if (isIndexed) {
-                            GL30C.glBindBufferBase(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, 3, vertexBufferAccessor.getVertexBufferId());
-                        } else {
-                            vertexBufferAccessor.invokeBind();
-                        }
-                        currentVertexBuffer.getElementFormat().startDrawing();
                     }
 
                     VertexFormat.DrawMode drawMode = vertexBufferAccessor.getDrawMode();
